@@ -1,8 +1,17 @@
 {
+	// 1. 设置 Prettier 为默认格式化工具
 	"editor.defaultFormatter": "esbenp.prettier-vscode",
+
+	// 2. 开启“保存时格式化”
+	// 这会让 Prettier 在你每次保存文件时自动格式化代码
 	"editor.formatOnSave": true,
+
+	// 3. 开启“保存时自动修复 ESlint 问题”
+	// 这是个大杀器！它会在保存时运行 `eslint --fix`
 	"editor.codeActionsOnSave": {
 		"source.fixAll.eslint": true
 	},
+
+	// 4. (可选但推荐) 让 ESLint 插件也校验 JS 和 TS 文件
 	"eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"]
 }
