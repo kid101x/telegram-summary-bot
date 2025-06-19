@@ -6,6 +6,8 @@ import telegramifyMarkdown from 'telegramify-markdown';
 import { Buffer } from 'node:buffer';
 import { isJPEGBase64 } from './isJpeg';
 import { extractAllOGInfo } from './og';
+
+// 定义消息内容的类型，可以是文本或图片
 function dispatchContent(content: string): { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } } {
 	if (content.startsWith('data:image/jpeg;base64,')) {
 		return {
@@ -21,14 +23,30 @@ function dispatchContent(content: string): { type: 'text'; text: string } | { ty
 	};
 }
 
-function getMessageLink(r: { groupId: string; messageId: number }) {
-	return `https://t.me/c/${parseInt(r.groupId.slice(2))}/${r.messageId}`;
+// 生成消息的永久链接
+// 适应私有群ID（如-987654321）
+function getMessageLink(r: { groupId: string | number; messageId: number }) {
+	// 1. 确保我们处理的是一个整数，避免 D1 可能返回浮点数（如 123.0）导致的问题。
+	// Number() 和 Math.trunc() 可以安全地处理字符串或数字输入。
+	const groupIdNum = Math.trunc(Number(r.groupId));
+	const groupIdStr = groupIdNum.toString();
+
+	// 2. 根据群组类型处理 ID。
+	// 超级群组的 ID 以 '-100' 开头，链接中需要移除此部分。
+	// 其他群组（如果可链接）则使用其 ID 的绝对值。
+	const processedId = groupIdStr.startsWith('-100') ? groupIdStr.slice(4) : Math.abs(groupIdNum).toString();
+
+	return `https://t.me/c/${processedId}/${r.messageId}`;
 }
 
-function getSendTime(r: R) {
-	return new Date(r.timeStamp).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
-}
+// 获取格式化的发送时间，从未被调用
+//function getSendTime(r: R) {
+//  return new Date(r.timeStamp).toLocaleString('zh-CN', {
+//    timeZone: 'Asia/Shanghai',
+//  });
+//}
 
+// 转义 MarkdownV2 的特殊字符
 function escapeMarkdownV2(text: string) {
 	// 注意：反斜杠 \ 本身也需要转义，所以正则表达式中是 \\\\
 	// 或者直接在字符串中使用 \
@@ -44,8 +62,8 @@ function escapeMarkdownV2(text: string) {
  * @param {number} num - 要转换的数字
  * @returns {string} 上标形式的数字
  */
-export function toSuperscript(num: number) {
-	const superscripts = {
+export function toSuperscript(num: number): string {
+	const superscripts: { [key: string]: string } = {
 		'0': '⁰',
 		'1': '¹',
 		'2': '²',
@@ -57,11 +75,10 @@ export function toSuperscript(num: number) {
 		'8': '⁸',
 		'9': '⁹',
 	};
-
 	return num
 		.toString()
 		.split('')
-		.map((digit) => superscripts[digit as keyof typeof superscripts])
+		.map((digit) => superscripts[digit])
 		.join('');
 }
 /**
@@ -78,11 +95,11 @@ export function processMarkdownLinks(
 		prefix: '引用',
 		useEnglish: false,
 	},
-) {
+): string {
 	const { prefix, useEnglish } = options;
 
 	// 用于存储已经出现过的链接
-	const linkMap = new Map();
+	const linkMap = new Map<string, number>();
 	let linkCounter = 1;
 
 	// 匹配 markdown 链接的正则表达式
@@ -98,7 +115,7 @@ export function processMarkdownLinks(
 		if (!linkMap.has(url)) {
 			linkMap.set(url, linkCounter++);
 		}
-		const linkNumber = linkMap.get(url);
+		const linkNumber = linkMap.get(url)!;
 
 		// 根据选项决定使用中文还是英文格式
 		const linkPrefix = useEnglish ? 'link' : prefix;
@@ -108,6 +125,7 @@ export function processMarkdownLinks(
 	});
 }
 
+// 定义数据库记录的类型
 type R = {
 	groupId: string;
 	userName: string;
@@ -115,19 +133,22 @@ type R = {
 	messageId: number;
 	timeStamp: number;
 };
+// AI 模型配置
 const model = 'gemini-2.0-flash';
-const reasoning_effort = 'none';
+// const reasoning_effort = "none"; // 该变量已声明但未使用
 const temperature = 0.4;
+
+// 获取 AI 模型实例
 function getGenModel(env: Env) {
-	const openai = new OpenAI({
+	// const account_id = env.account_id; // 该变量已声明但未使用
+	return new OpenAI({
 		apiKey: env.GEMINI_API_KEY,
-		baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-		timeout: 999999999999,
+		baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/', // Correct URL for OpenAI compatibility
+		timeout: 30000, // 30 seconds timeout
 	});
-	const account_id = env.account_id;
-	return openai;
 }
 
+// 将文本折叠成可展开的 Markdown 格式
 function foldText(text: string) {
 	return (
 		'**>' +
@@ -139,7 +160,7 @@ function foldText(text: string) {
 	);
 }
 
-// System prompts for different scenarios
+// 系统提示
 const SYSTEM_PROMPTS = {
 	summarizeChat: `你是一个专业的群聊概括助手。你的任务是用符合群聊风格的语气概括对话内容。
 对话将按以下格式提供：
@@ -150,7 +171,7 @@ const SYSTEM_PROMPTS = {
 ====================
 
 请遵循以下指南：
-1. 如果对话包含多个主题，请分条概括
+1. 如果对话包含多个主题，请分条概括，每条开头插入接近主题的emoji
 2. 如果对话中提到图片，请在概括中包含相关内容描述
 3. 在回答中用markdown格式引用原对话的链接
 4. 链接格式应为：[引用1](链接本体)、[关键字1](链接本体)等
@@ -174,6 +195,7 @@ const SYSTEM_PROMPTS = {
 6. 回答应该简洁但内容完整`,
 };
 
+// 从命令中提取参数
 function getCommandVar(str: string, delim: string) {
 	return str.slice(str.indexOf(delim) + delim.length);
 }
@@ -186,14 +208,15 @@ function messageTemplate(s: string) {
 	);
 }
 /**
- *
+ * 修复 LLM 可能输出的错误链接格式，去除LLM训练中引入的幻觉内容tme.cat
  * @param text
- * @description I dont know why, but llm keep output tme.cat, so we need to fix it
  * @returns
  */
 function fixLink(text: string) {
 	return text.replace(/tme\.cat/g, 't.me/c').replace(/\/c\/c/g, '/c');
 }
+
+// 从消息中获取用户名或频道名
 function getUserName(msg: any) {
 	if (msg?.sender_chat?.title) {
 		return msg.sender_chat.title as string;
@@ -367,7 +390,7 @@ export default {
 					.all();
 				const res = (await ctx.reply(
 					escapeMarkdownV2(`查询结果:
-${results.map((r: any) => `${r.userName}: ${r.content} ${r.messageId == null ? '' : `[link](https://t.me/c/${parseInt(r.groupId.slice(2))}/${r.messageId})`}`).join('\n')}`),
+${results.map((r: any) => `${r.userName}: ${r.content} ${r.messageId === null ? '' : `[link](https://t.me/c/${parseInt(r.groupId.slice(2))}/${r.messageId})`}`).join('\n')}`),
 					'MarkdownV2',
 				))!;
 				if (!res.ok) {
