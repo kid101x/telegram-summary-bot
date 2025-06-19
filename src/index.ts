@@ -82,12 +82,14 @@ export function toSuperscript(num: number): string {
 		.join('');
 }
 /**
- * 处理 Markdown 文本中的重复链接，将其转换为顺序编号的格式
- * @param {string} text - 输入的 Markdown 文本
- * @param {Object} options - 配置选项
- * @param {string} options.prefix - 链接文本的前缀，默认为"链接"
- * @param {boolean} options.useEnglish - 是否使用英文(link1)而不是中文(链接1)，默认为 false
- * @returns {string} 处理后的 Markdown 文本
+ * 处理 Markdown 文本中的重复链接，将其转换为带上标的引用格式。
+ * 例如，将多个相同的 `[http://a.com](http://a.com)` 转换为 `[引用¹](http://a.com)`。
+ *
+ * @param {string} text - 输入的 Markdown 文本。
+ * @param {object} options - 配置选项。
+ * @param {string} [options.prefix='引用'] - 链接文本的前缀。
+ * @param {boolean} [options.useEnglish=false] - 是否使用英文格式（如 "link¹"）而不是中文("链接¹")，。
+ * @returns {string} 处理后的 Markdown 文本。
  */
 export function processMarkdownLinks(
 	text: string,
@@ -97,7 +99,6 @@ export function processMarkdownLinks(
 	},
 ): string {
 	const { prefix, useEnglish } = options;
-
 	// 用于存储已经出现过的链接
 	const linkMap = new Map<string, number>();
 	let linkCounter = 1;
@@ -149,15 +150,8 @@ function getGenModel(env: Env) {
 }
 
 // 将文本折叠成可展开的 Markdown 格式
-function foldText(text: string) {
-	return (
-		'**>' +
-		text
-			.split('\n')
-			.map((line) => '>' + line)
-			.join('\n') +
-		'||'
-	);
+function foldText(text: string): string {
+	return '**>' + text.replace(/\n/g, '\n>') + '||';
 }
 
 // 系统提示
@@ -171,11 +165,11 @@ const SYSTEM_PROMPTS = {
 ====================
 
 请遵循以下指南：
-1. 如果对话包含多个主题，请分条概括，每条开头插入接近主题的emoji
-2. 如果对话中提到图片，请在概括中包含相关内容描述
-3. 在回答中用markdown格式引用原对话的链接
-4. 链接格式应为：[引用1](链接本体)、[关键字1](链接本体)等
-5. 概括要简洁明了，捕捉对话的主要内容和情绪
+1. 如果对话包含多个主题，请分条概括，每条开头插入接近主题的emoji。
+2. 如果对话中提到图片，请在概括中包含相关内容描述。
+3. 在回答中用markdown格式引用原对话的链接。
+4. 链接格式应为：[引用1](链接本体)、[关键字1](链接本体)等。
+5. 概括要简洁明了，捕捉对话的主要内容和情绪。
 6. 概括的开头使用"本日群聊总结如下："`,
 
 	answerQuestion: `你是一个群聊智能助手。你的任务是基于提供的群聊记录回答用户的问题。
@@ -187,12 +181,12 @@ const SYSTEM_PROMPTS = {
 ====================
 
 请遵循以下指南：
-1. 用符合群聊风格的语气回答问题
-2. 在回答中引用相关的原始消息作为依据
-3. 使用markdown格式引用原对话，格式为：[引用1](链接本体)、[关键字1](链接本体)
-4. 在链接两侧添加空格
-5. 如果找不到相关信息，请诚实说明
-6. 回答应该简洁但内容完整`,
+1. 用符合群聊风格的语气回答问题。
+2. 在回答中引用相关的原始消息作为依据。
+3. 使用markdown格式引用原对话，格式为：[引用1](链接本体)、[关键字1](链接本体)。
+4. 在链接两侧添加空格。
+5. 如果找不到相关信息，请诚实说明。
+6. 回答应该简洁但内容完整。`,
 };
 
 // 从命令中提取参数
@@ -200,6 +194,7 @@ function getCommandVar(str: string, delim: string) {
 	return str.slice(str.indexOf(delim) + delim.length);
 }
 
+// 机器人回复的消息模板
 function messageTemplate(s: string) {
 	return (
 		`下面由免费 ${escapeMarkdownV2(model)} 概括群聊信息\n` +
@@ -228,7 +223,8 @@ export default {
 		console.debug('Scheduled task starting:', new Date().toISOString());
 		const date = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
 		// Clean up oldest 4000 messages
-		if (date.getHours() === 0 && date.getMinutes() < 5) {
+		// ctx.waitUntil 异步延迟执行
+		if (date.getHours() === 0 && date.getMinutes() < 6) {
 			await env.DB.prepare(
 				`
 					DELETE FROM Messages
@@ -247,6 +243,8 @@ export default {
 					);`,
 			).run();
 		}
+
+		// 获取需要处理的群组列表，并进行缓存
 		const cache = caches.default;
 		const cacheKey = new Request(`https://dummy-url/${env.SECRET_TELEGRAM_API_TOKEN}`);
 		const cachedResponse = await cache.match(cacheKey);
@@ -288,8 +286,9 @@ export default {
 				),
 			);
 		}
-		const batch = Math.floor(date.getMinutes() / 6); // 0 <= batch < 10
 
+		// 分批处理群组
+		const batch = Math.floor(date.getMinutes() / 6); // 0 <= batch < 10
 		console.debug('Batch:', batch);
 		console.debug('Found groups:', groups.length, JSON.stringify(groups));
 		for (const [id, group] of groups.entries()) {
@@ -297,6 +296,7 @@ export default {
 				continue;
 			}
 			console.debug(`Processing group ${id + 1}/${groups.length}: ${group.groupId}`);
+
 			const { results } = await env.DB.prepare('SELECT * FROM Messages WHERE groupId=? AND timeStamp >= ? ORDER BY timeStamp ASC')
 				.bind(group.groupId, Date.now() - 24 * 60 * 60 * 1000)
 				.all();
@@ -345,21 +345,27 @@ export default {
 				console.error('Failed to send reply', res?.statusText, await res?.text());
 			}
 		}
-		// clean up old images
-		if (date.getHours() === 0 && date.getMinutes() < 5) {
+		// 每天清理一次超过2天的图片
+		if (date.getHours() === 0 && date.getMinutes() < 6) {
+			// 定义2天的毫秒数，更具可读性
+			const TWO_DAYS_IN_MS = 2 * 24 * 60 * 60 * 1000;
+			const cutoffTimestamp = Date.now() - TWO_DAYS_IN_MS;
+
 			ctx.waitUntil(
 				env.DB.prepare(
 					`
-					DELETE
-					FROM Messages
-					WHERE timeStamp < ? AND content LIKE 'data:image/jpeg;base64,%'`,
+            DELETE
+            FROM Messages
+            WHERE timeStamp < ?1 AND content LIKE 'data:image/jpeg;base64,%'`,
 				)
-					.bind(Date.now() - 24 * 60 * 60 * 1000)
+					.bind(cutoffTimestamp) // 使用计算好的时间戳
 					.run(),
 			);
 		}
+
 		console.debug('cron processed');
 	},
+
 	fetch: async (request: Request, env: Env, ctx: ExecutionContext) => {
 		await new TelegramBot(env.SECRET_TELEGRAM_API_TOKEN)
 			.on('status', async (ctx) => {
