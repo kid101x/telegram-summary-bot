@@ -9,7 +9,7 @@
 	// 3. 开启“保存时自动修复 ESlint 问题”
 	// 这是个大杀器！它会在保存时运行 `eslint --fix`
 	"editor.codeActionsOnSave": {
-		"source.fixAll.eslint": true
+		"source.fixAll.eslint": "explicit"
 	},
 
 	// 4. (可选但推荐) 让 ESLint 插件也校验 JS 和 TS 文件
