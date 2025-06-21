@@ -145,6 +145,7 @@ function getGenModel(env: Env) {
 	return new OpenAI({
 		apiKey: env.GEMINI_API_KEY,
 		baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/', // Correct URL for OpenAI compatibility
+		// https://gateway.ai.cloudflare.com/v1/${env.account_id}/{env.GATEWAY_NAME}/google-ai-studio
 		timeout: 30000, // 30 seconds timeout
 	});
 }
