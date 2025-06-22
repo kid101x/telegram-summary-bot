@@ -1,5 +1,5 @@
 #:schema node_modules/wrangler/config-schema.json
-name = "telegram-summary-bot"
+name = "telegram-summary-test"
 main = "src/index.ts"
 compatibility_date = "2024-11-12"
 compatibility_flags = ["nodejs_compat"]
@@ -45,9 +45,8 @@ mode = "smart"
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#d1-databases
 [[d1_databases]]
 binding = "DB"
-database_name = "chat-msg-d1"
-database_id = "${DB_ID}" #最终线上部署建议走wrangler secret put account_id方式
-
+database_name = "baijiabot-t-db"
+database_id = "4ea82938-ef09-42f0-a7d4-c0b30d304a29"
 [triggers]
 crons = ["*/6 16 * * *"] # utc+8 0 0,1 * * *
 
