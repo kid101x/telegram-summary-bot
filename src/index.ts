@@ -1,11 +1,14 @@
-import TelegramBot from '@codebam/cf-workers-telegram-bot'; //删除未使用导入
+// 外部库 (External Libraries)
+import TelegramBot, { type TelegramMessage } from '@codebam/cf-workers-telegram-bot';
 import OpenAI from 'openai';
-
 import telegramifyMarkdown from 'telegramify-markdown';
-//@ts-ignore
+
+// Node.js 内置模块 (Built-in Modules)
 import { Buffer } from 'node:buffer';
-import { isJPEGBase64 } from './isJpeg';
+
+// 项目内部模块 (Local Modules)
 import { extractAllOGInfo } from './og';
+import { isJPEGBase64 } from './isJpeg';
 
 // 定义消息内容的类型，可以是文本或图片
 function dispatchContent(content: string): { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } } {
@@ -150,7 +153,12 @@ function getGenModel(env: Env) {
 	});
 }
 
-// 将文本折叠成可展开的 Markdown 格式
+/** 将文本折叠成可展开的 Markdown 格式
+ * 将长文本折叠成 Telegram 支持的 MarkdownV2 可展开/隐藏格式。
+ * 这种格式要求以 `**>` 开始，以 `||` 结束，且内部所有行都以 `>` 作为前缀。
+ * @param text 要折叠的文本
+ * @returns 格式化后的字符串
+ */
 function foldText(text: string): string {
 	return '**>' + text.replace(/\n/g, '\n>') + '||';
 }
@@ -212,13 +220,20 @@ function fixLink(text: string) {
 	return text.replace(/tme\.cat/g, 't.me/c').replace(/\/c\/c/g, '/c');
 }
 
-// 从消息中获取用户名或频道名
-function getUserName(msg: any) {
-	if (msg?.sender_chat?.title) {
-		return msg.sender_chat.title as string;
+/**
+ * 从消息对象中提取发送者的名称。
+ * 如果是频道匿名发送，则返回频道标题；否则返回用户名字。
+ * @param msg - Telegram 消息对象。
+ * @returns 发送者的名称字符串。
+ */
+
+function getUserName(msg: TelegramMessage): string {
+	if (msg.sender_chat?.title) {
+		return msg.sender_chat.title;
 	}
-	return (msg.from?.first_name as string) || 'anonymous';
+	return msg.from?.first_name || 'anonymous';
 }
+
 export default {
 	async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
 		console.debug('Scheduled task starting:', new Date().toISOString());
