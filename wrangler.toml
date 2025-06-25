@@ -20,6 +20,11 @@ mode = "smart"
 [triggers]
 crons = ["*/6 16 * * *"] # utc+8 0 0,1 * * *
 
+[vars]
+# 创建一个名为 GIT_COMMIT_SHA 的运行时变量，
+# 值从构建环境中名为 WORKERS_CI_COMMIT_SHA 的变量中获取。
+GIT_COMMIT_SHA = "${WORKERS_CI_COMMIT_SHA}"
+
 # Variable bindings. These are arbitrary, plaintext strings (similar to environment variables)
 # Docs:
 # - https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
