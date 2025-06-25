@@ -26,6 +26,16 @@ crons = ["*/6 16 * * *"] # utc+8 0 0,1 * * *
 # Note: Use secrets to store sensitive data.
 # - https://developers.cloudflare.com/workers/configuration/secrets/
 
+# 新增 [vars] 部分，为生产环境定义一个变量占位符
+[vars]
+GIT_COMMIT_SHA = "unset"
+
+# ... (d1_databases 和 triggers 部分保持不变) ...
+[[d1_databases]]
+binding = "DB"
+database_name = "baijiabot-t-db"
+database_id = "12345-abcde-12345"
+
 # ==================================
 #  Master Environment (Production)
 # ==================================
