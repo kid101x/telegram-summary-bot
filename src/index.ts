@@ -610,9 +610,9 @@ ${results.map((r: any) => `${r.userName}: ${r.content} ${r.messageId === null ? 
 						const msg = bot.update.message!;
 						const groupId = msg.chat.id;
 						let content = msg.text || '';
-						// 如果消息以忽略列表中的任一关键词开头，则直接忽略
-						if (IGNORED_KEYWORDS.some((keyword) => content.startsWith(keyword))) {
-							console.log(`Ignored message starting with keyword in group ${groupId}`);
+						// 如果消息与忽略列表中的任一关键词完全匹配，则直接忽略
+						if (IGNORED_KEYWORDS.includes(content)) {
+							console.log(`Ignored exact match message in group ${groupId}: "${content}"`);
 							return new Response('ok');
 						}
 
