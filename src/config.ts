@@ -4,7 +4,7 @@
  */
 export const IGNORED_KEYWORDS: string[] = ['签到', '打卡', '查找'];
 /*
- * 计划将常量都转移过来
+ * 计划将常量、变量都转移过来，集中管理
  */
 
 export const aiConfig = {
