@@ -145,6 +145,7 @@ name = "telegram-summary-test"
 
 [env.dev-test.vars]
 ENV = "dev-test"
+GIT_COMMIT_SHA = "${WORKERS_CI_COMMIT_SHA}"
 
 # !!! IMPORTANT !!!
 # Replace the database_name and database_id with your actual dev-test database values.
