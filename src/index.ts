@@ -388,7 +388,7 @@ export default {
 			.on('version', async (bot) => {
 				// /version 命令处理器
 				// 读取我们自己的 GIT_COMMIT_SHA 变量
-				const sha = env.GIT_COMMIT_SHA || 'unknown';
+				const sha = env.WORKERS_CI_COMMIT_SHA || 'unknown';
 				// 取前7位通常就足够唯一了
 				const versionMessage = `当前版本: \`${sha.slice(0, 7)}\``;
 				await bot.reply(versionMessage, 'MarkdownV2');

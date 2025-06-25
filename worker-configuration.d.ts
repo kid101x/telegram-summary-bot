@@ -9,5 +9,5 @@ interface Env {
 	DB_ID?: string;
 	// 由 Cloudflare Pages 自动注入的 Git Commit SHA
 	// 用于 /version 命令
-	GIT_COMMIT_SHA: string;
+	WORKERS_CI_COMMIT_SHA?: string;
 }
