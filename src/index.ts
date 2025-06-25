@@ -131,7 +131,7 @@ export function processMarkdownLinks(
 }
 
 // 定义数据库记录的类型
-type R = {
+type MessageRecord = {
 	groupId: string;
 	userName: string;
 	content: string;
