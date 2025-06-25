@@ -1,5 +1,5 @@
 #:schema node_modules/wrangler/config-schema.json
-name = "telegram-summary-test"
+name = "telegram-summary-bot"
 main = "src/index.ts"
 compatibility_date = "2024-11-12"
 compatibility_flags = ["nodejs_compat"]
@@ -17,14 +17,32 @@ enabled = true
 [placement]
 mode = "smart"
 
+[triggers]
+crons = ["*/6 16 * * *"] # utc+8 0 0,1 * * *
+
 # Variable bindings. These are arbitrary, plaintext strings (similar to environment variables)
 # Docs:
 # - https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
 # Note: Use secrets to store sensitive data.
 # - https://developers.cloudflare.com/workers/configuration/secrets/
 
-[vars]
+# ==================================
+#  Master Environment (Production)
+# ==================================
+[env.master]
+# It's good practice to give each environment a unique name to avoid conflicts.
+name = "telegram-summary-bot"
 
+[env.master.vars]
+ENV = "master"
+
+# Bind a D1 database. D1 is Cloudflare’s native serverless SQL database.
+# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#d1-databases
+
+[[env.master.d1_databases]]
+binding = "DB"
+database_name = "chat-msg-d1"
+database_id = "f76898f1-671d-4844-89e8-b460d73855b0"
 
 # Bind the Workers AI model catalog. Run machine learning models, powered by serverless GPUs, on Cloudflare’s global network
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#workers-ai
@@ -40,15 +58,6 @@ mode = "smart"
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#browser-rendering
 # [browser]
 # binding = "MY_BROWSER"
-
-# Bind a D1 database. D1 is Cloudflare’s native serverless SQL database.
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#d1-databases
-[[d1_databases]]
-binding = "DB"
-database_name = "baijiabot-t-db"
-database_id = "4ea82938-ef09-42f0-a7d4-c0b30d304a29"
-[triggers]
-crons = ["*/6 16 * * *"] # utc+8 0 0,1 * * *
 
 # Bind a dispatch namespace. Use Workers for Platforms to deploy serverless functions programmatically on behalf of your customers.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#dispatch-namespace-bindings-workers-for-platforms
@@ -115,3 +124,20 @@ crons = ["*/6 16 * * *"] # utc+8 0 0,1 * * *
 # [[vectorize]]
 # binding = "MY_INDEX"
 # index_name = "my-index"
+
+# ==================================
+#  Dev-Test Environment
+# ==================================
+[env.dev-test]
+# It's good practice to give each environment a unique name to avoid conflicts.
+name = "telegram-summary-test"
+
+[env.dev-test.vars]
+ENV = "dev-test"
+
+# !!! IMPORTANT !!!
+# Replace the database_name and database_id with your actual dev-test database values.
+[[env.dev-test.d1_databases]]
+binding = "DB"
+database_name = "baijiabot-t-db"
+database_id = "4ea82938-ef09-42f0-a7d4-c0b30d304a29"
