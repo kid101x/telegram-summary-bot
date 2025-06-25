@@ -446,7 +446,7 @@ ${results.map((r: any) => `${r.userName}: ${r.content} ${r.messageId === null ? 
 							},
 						],
 						max_tokens: 4096,
-						temperature,
+						temperature: aiConfig.temperature,
 					});
 				} catch (e) {
 					console.error(e);
@@ -546,7 +546,7 @@ ${results.map((r: any) => `${r.userName}: ${r.content} ${r.messageId === null ? 
 								},
 							],
 							max_tokens: 4096,
-							temperature,
+							temperature: aiConfig.temperature,
 						});
 
 						const res = await bot.reply(
