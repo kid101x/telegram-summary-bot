@@ -46,7 +46,7 @@ mode = "smart"
 [[d1_databases]]
 binding = "DB"
 database_name = "baijiabot-t-db"
-database_id = "f76898f1-671d-4844-89e8-b460d73855b0"
+database_id = "4ea82938-ef09-42f0-a7d4-c0b30d304a29"
 [triggers]
 crons = ["*/6 16 * * *"] # utc+8 0 0,1 * * *
 
