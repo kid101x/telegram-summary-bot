@@ -9,7 +9,7 @@ import { Buffer } from 'node:buffer';
 // 项目内部模块 (Local Modules)
 import { extractAllOGInfo } from './og';
 import { isJPEGBase64 } from './isJpeg';
-import { IGNORED_KEYWORDS } from './config';
+import { IGNORED_KEYWORDS } from './config'; // <-- 外部参数文件，导入忽略列表
 
 // 定义消息内容的类型，可以是文本或图片
 function dispatchContent(content: string): { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } } {
@@ -385,6 +385,13 @@ export default {
 
 	fetch: async (request: Request, env: Env, ctx: ExecutionContext) => {
 		await new TelegramBot(env.SECRET_TELEGRAM_API_TOKEN)
+			.on('version', async (bot) => {
+				// <-- /version 命令处理器
+				const sha = env.CF_PAGES_COMMIT_SHA || 'unknown';
+				const versionMessage = `当前版本: \`${sha.slice(0, 7)}\``;
+				await bot.reply(versionMessage, 'MarkdownV2');
+				return new Response('ok');
+			})
 			.on('status', async (ctx) => {
 				const res = (await ctx.reply('我家还蛮大的'))!;
 				if (!res.ok) {
@@ -610,7 +617,8 @@ ${results.map((r: any) => `${r.userName}: ${r.content} ${r.messageId === null ? 
 						const msg = bot.update.message!;
 						const groupId = msg.chat.id;
 						let content = msg.text || '';
-						// 如果消息与忽略列表中的任一关键词完全匹配，则直接忽略
+
+						// <-- 精确匹配忽略逻辑
 						if (IGNORED_KEYWORDS.includes(content)) {
 							console.log(`Ignored exact match message in group ${groupId}: "${content}"`);
 							return new Response('ok');
