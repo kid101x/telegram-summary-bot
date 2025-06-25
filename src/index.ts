@@ -9,6 +9,7 @@ import { Buffer } from 'node:buffer';
 // 项目内部模块 (Local Modules)
 import { extractAllOGInfo } from './og';
 import { isJPEGBase64 } from './isJpeg';
+import { IGNORED_KEYWORDS } from './config';
 
 // 定义消息内容的类型，可以是文本或图片
 function dispatchContent(content: string): { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } } {
@@ -609,6 +610,12 @@ ${results.map((r: any) => `${r.userName}: ${r.content} ${r.messageId === null ? 
 						const msg = bot.update.message!;
 						const groupId = msg.chat.id;
 						let content = msg.text || '';
+						// 如果消息以忽略列表中的任一关键词开头，则直接忽略
+						if (IGNORED_KEYWORDS.some((keyword) => content.startsWith(keyword))) {
+							console.log(`Ignored message starting with keyword in group ${groupId}`);
+							return new Response('ok');
+						}
+
 						const fwd = msg.forward_from?.last_name;
 						const replyTo = msg.reply_to_message?.message_id;
 						if (fwd) {
