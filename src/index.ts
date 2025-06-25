@@ -9,7 +9,7 @@ import { Buffer } from 'node:buffer';
 // 项目内部模块 (Local Modules)
 import { extractAllOGInfo } from './og';
 import { isJPEGBase64 } from './isJpeg';
-import { IGNORED_KEYWORDS } from './config'; // <-- 外部参数文件，导入忽略列表
+import { IGNORED_KEYWORDS, aiConfig, botConfig, cronConfig, SYSTEM_PROMPTS } from './config'; // <-- 外部参数文件，导入忽略列表
 
 // 定义消息内容的类型，可以是文本或图片
 function dispatchContent(content: string): { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } } {
@@ -138,19 +138,13 @@ type MessageRecord = {
 	messageId: number;
 	timeStamp: number;
 };
-// AI 模型配置
-const model = 'gemini-2.0-flash';
-// const reasoning_effort = "none"; // 该变量已声明但未使用
-const temperature = 0.4;
 
 // 获取 AI 模型实例
 function getGenModel(env: Env) {
-	// const account_id = env.account_id; // 该变量已声明但未使用
 	return new OpenAI({
 		apiKey: env.GEMINI_API_KEY,
-		baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/', // Correct URL for OpenAI compatibility
-		// https://gateway.ai.cloudflare.com/v1/${env.account_id}/{env.GATEWAY_NAME}/google-ai-studio
-		timeout: 30000, // 30 seconds timeout
+		baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+		timeout: aiConfig.timeout,
 	});
 }
 
@@ -164,41 +158,6 @@ function foldText(text: string): string {
 	return '**>' + text.replace(/\n/g, '\n>') + '||';
 }
 
-// 系统提示
-const SYSTEM_PROMPTS = {
-	summarizeChat: `你是一个专业的群聊概括助手。你的任务是用符合群聊风格的语气概括对话内容。
-对话将按以下格式提供：
-====================
-用户名:
-发言内容
-相应链接
-====================
-
-请遵循以下指南：
-1. 如果对话包含多个主题，请分条概括，每条开头插入接近主题的emoji。
-2. 如果对话中提到图片，请在概括中包含相关内容描述。
-3. 在回答中用markdown格式引用原对话的链接。
-4. 链接格式应为：[引用1](链接本体)、[关键字1](链接本体)等。
-5. 概括要简洁明了，捕捉对话的主要内容和情绪。
-6. 概括的开头使用"本日群聊总结如下："`,
-
-	answerQuestion: `你是一个群聊智能助手。你的任务是基于提供的群聊记录回答用户的问题。
-群聊记录将按以下格式提供：
-====================
-用户名:
-发言内容
-相应链接
-====================
-
-请遵循以下指南：
-1. 用符合群聊风格的语气回答问题。
-2. 在回答中引用相关的原始消息作为依据。
-3. 使用markdown格式引用原对话，格式为：[引用1](链接本体)、[关键字1](链接本体)。
-4. 在链接两侧添加空格。
-5. 如果找不到相关信息，请诚实说明。
-6. 回答应该简洁但内容完整。`,
-};
-
 // 从命令中提取参数
 function getCommandVar(str: string, delim: string) {
 	return str.slice(str.indexOf(delim) + delim.length);
@@ -207,9 +166,7 @@ function getCommandVar(str: string, delim: string) {
 // 机器人回复的消息模板
 function messageTemplate(s: string) {
 	return (
-		`下面由免费 ${escapeMarkdownV2(model)} 概括群聊信息\n` +
-		s +
-		'\n本开源项目[地址](https://github\\.com/asukaminato0721/telegram-summary-bot)'
+		`下面由奢侈的 ${escapeMarkdownV2(aiConfig.model)} 概括群聊信息\n` + s + `\n本开源项目[地址](${escapeMarkdownV2(botConfig.repoUrl)})`
 	);
 }
 /**
@@ -258,7 +215,9 @@ export default {
 						) ranked
 						WHERE row_num > 3000
 					);`,
-			).run();
+			)
+				.bind(cronConfig.messageCleanupThreshold)
+				.run();
 		}
 
 		// 获取需要处理的群组列表，并进行缓存
@@ -288,7 +247,7 @@ export default {
 		ORDER BY message_count DESC;
 		`,
 				)
-					.bind(Date.now())
+					.bind(Date.now(), cronConfig.dailySummaryMessageThreshold)
 					.all()
 			).results;
 			ctx.waitUntil(
@@ -319,7 +278,7 @@ export default {
 				.all();
 
 			const result = await getGenModel(env).chat.completions.create({
-				model,
+				model: aiConfig.model,
 				messages: [
 					{
 						role: 'system',
@@ -336,10 +295,9 @@ export default {
 					},
 				],
 				max_tokens: 4096,
-				temperature,
+				temperature: aiConfig.temperature,
 			});
-			if ([-1001687785734].includes(parseInt(group.groupId as string))) {
-				// todo: use cloudflare r2 to store skip list
+			if (cronConfig.skipSummaryGroupIds.includes(parseInt(group.groupId as string))) {
 				continue;
 			}
 			console.debug('send message to', group.groupId);
@@ -365,8 +323,7 @@ export default {
 		// 每天清理一次超过2天的图片
 		if (date.getHours() === 0 && date.getMinutes() < 6) {
 			// 定义2天的毫秒数，更具可读性
-			const TWO_DAYS_IN_MS = 2 * 24 * 60 * 60 * 1000;
-			const cutoffTimestamp = Date.now() - TWO_DAYS_IN_MS;
+			const cutoffTimestamp = Date.now() - cronConfig.imageRetentionPeriodMs;
 
 			ctx.waitUntil(
 				env.DB.prepare(
@@ -468,7 +425,7 @@ ${results.map((r: any) => `${r.userName}: ${r.content} ${r.messageId === null ? 
 				let result;
 				try {
 					result = await getGenModel(env).chat.completions.create({
-						model,
+						model: aiConfig.model,
 						messages: [
 							{
 								role: 'system',
@@ -571,7 +528,7 @@ ${results.map((r: any) => `${r.userName}: ${r.content} ${r.messageId === null ? 
 				if (results.length > 0) {
 					try {
 						const result = await getGenModel(env).chat.completions.create({
-							model,
+							model: aiConfig.model,
 							// reasoning_effort,
 							messages: [
 								{
