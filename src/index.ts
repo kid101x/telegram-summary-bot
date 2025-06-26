@@ -11,6 +11,11 @@ import { extractAllOGInfo } from './og';
 import { isJPEGBase64 } from './isJpeg';
 import { IGNORED_KEYWORDS, aiConfig, botConfig, cronConfig, SYSTEM_PROMPTS } from './config'; // <-- 外部参数文件，导入忽略列表
 
+// --- 正则表达式常量 ---
+// 将正则表达式的构建提升到模块级别，避免在函数调用时重复创建
+const MARKDOWN_V2_RESERVED_CHARS = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
+const MARKDOWN_V2_ESCAPE_REGEX = new RegExp(`([${MARKDOWN_V2_RESERVED_CHARS.map((char) => '\\' + char).join('')}])`, 'g');
+
 // 定义消息内容的类型，可以是文本或图片
 function dispatchContent(content: string): { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } } {
 	if (content.startsWith('data:image/jpeg;base64,')) {
@@ -52,13 +57,7 @@ function getMessageLink(r: { groupId: string | number; messageId: number }) {
 
 // 转义 MarkdownV2 的特殊字符
 function escapeMarkdownV2(text: string) {
-	// 注意：反斜杠 \ 本身也需要转义，所以正则表达式中是 \\\\
-	// 或者直接在字符串中使用 \
-	const reservedChars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
-	// 正则表达式需要转义特殊字符
-	const escapedChars = reservedChars.map((char) => '\\' + char).join('');
-	const regex = new RegExp(`([${escapedChars}])`, 'g');
-	return text.replace(regex, '\\$1');
+	return text.replace(MARKDOWN_V2_ESCAPE_REGEX, '\\$1');
 }
 
 /**
