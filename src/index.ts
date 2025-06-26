@@ -9,7 +9,7 @@ import { extractAllOGInfo } from './og';
 import { isJPEGBase64 } from './isJpeg';
 import { IGNORED_KEYWORDS, aiConfig, botConfig, cronConfig, SYSTEM_PROMPTS } from './config'; // <-- 外部参数文件，导入忽略列表
 // ⬇️ --- 新增的 Imports --- ⬇️
-import { foldText, processMarkdownLinks } from './utils/markdown';
+import { escapeMarkdownV2, foldText, processMarkdownLinks } from './utils/markdown';
 import { fixLink, getCommandVar, getMessageLink, getUserName, messageTemplate } from './utils/telegram';
 
 // 定义消息内容的类型，可以是文本或图片
