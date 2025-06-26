@@ -2,19 +2,15 @@
 import TelegramBot, { type TelegramMessage } from '@codebam/cf-workers-telegram-bot';
 import OpenAI from 'openai';
 import telegramifyMarkdown from 'telegramify-markdown';
-
 // Node.js 内置模块 (Built-in Modules)
 import { Buffer } from 'node:buffer';
-
 // 项目内部模块 (Local Modules)
 import { extractAllOGInfo } from './og';
 import { isJPEGBase64 } from './isJpeg';
 import { IGNORED_KEYWORDS, aiConfig, botConfig, cronConfig, SYSTEM_PROMPTS } from './config'; // <-- 外部参数文件，导入忽略列表
-
-// --- 正则表达式常量 ---
-// 将正则表达式的构建提升到模块级别，避免在函数调用时重复创建
-const MARKDOWN_V2_RESERVED_CHARS = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
-const MARKDOWN_V2_ESCAPE_REGEX = new RegExp(`([${MARKDOWN_V2_RESERVED_CHARS.map((char) => '\\' + char).join('')}])`, 'g');
+// ⬇️ --- 新增的 Imports --- ⬇️
+import { foldText, processMarkdownLinks } from './utils/markdown';
+import { fixLink, getCommandVar, getMessageLink, getUserName, messageTemplate } from './utils/telegram';
 
 // 定义消息内容的类型，可以是文本或图片
 function dispatchContent(content: string): { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } } {
@@ -32,102 +28,12 @@ function dispatchContent(content: string): { type: 'text'; text: string } | { ty
 	};
 }
 
-// 生成消息的永久链接
-// 适应私有群ID（如-987654321）
-function getMessageLink(r: { groupId: string | number; messageId: number }) {
-	// 1. 确保我们处理的是一个整数，避免 D1 可能返回浮点数（如 123.0）导致的问题。
-	// Number() 和 Math.trunc() 可以安全地处理字符串或数字输入。
-	const groupIdNum = Math.trunc(Number(r.groupId));
-	const groupIdStr = groupIdNum.toString();
-
-	// 2. 根据群组类型处理 ID。
-	// 超级群组的 ID 以 '-100' 开头，链接中需要移除此部分。
-	// 其他群组（如果可链接）则使用其 ID 的绝对值。
-	const processedId = groupIdStr.startsWith('-100') ? groupIdStr.slice(4) : Math.abs(groupIdNum).toString();
-
-	return `https://t.me/c/${processedId}/${r.messageId}`;
-}
-
 // 获取格式化的发送时间，从未被调用
 //function getSendTime(r: R) {
 //  return new Date(r.timeStamp).toLocaleString('zh-CN', {
 //    timeZone: 'Asia/Shanghai',
 //  });
 //}
-
-// 转义 MarkdownV2 的特殊字符
-function escapeMarkdownV2(text: string) {
-	return text.replace(MARKDOWN_V2_ESCAPE_REGEX, '\\$1');
-}
-
-/**
- * 将数字转换为上标数字
- * @param {number} num - 要转换的数字
- * @returns {string} 上标形式的数字
- */
-export function toSuperscript(num: number): string {
-	const superscripts: { [key: string]: string } = {
-		'0': '⁰',
-		'1': '¹',
-		'2': '²',
-		'3': '³',
-		'4': '⁴',
-		'5': '⁵',
-		'6': '⁶',
-		'7': '⁷',
-		'8': '⁸',
-		'9': '⁹',
-	};
-	return num
-		.toString()
-		.split('')
-		.map((digit) => superscripts[digit])
-		.join('');
-}
-/**
- * 处理 Markdown 文本中的重复链接，将其转换为带上标的引用格式。
- * 例如，将多个相同的 `[http://a.com](http://a.com)` 转换为 `[引用¹](http://a.com)`。
- *
- * @param {string} text - 输入的 Markdown 文本。
- * @param {object} options - 配置选项。
- * @param {string} [options.prefix='引用'] - 链接文本的前缀。
- * @param {boolean} [options.useEnglish=false] - 是否使用英文格式（如 "link¹"）而不是中文("链接¹")，。
- * @returns {string} 处理后的 Markdown 文本。
- */
-export function processMarkdownLinks(
-	text: string,
-	options: { prefix: string; useEnglish: boolean } = {
-		prefix: '引用',
-		useEnglish: false,
-	},
-): string {
-	const { prefix, useEnglish } = options;
-	// 用于存储已经出现过的链接
-	const linkMap = new Map<string, number>();
-	let linkCounter = 1;
-
-	// 匹配 markdown 链接的正则表达式
-	const linkPattern = /\[([^\]]+)\]\(([^)]+)\)/g;
-
-	return text.replace(linkPattern, (match, displayText, url) => {
-		// 只处理显示文本和 URL 完全相同的情况
-		if (displayText !== url) {
-			return match; // 保持原样
-		}
-
-		// 如果这个 URL 已经出现过，使用已存在的编号
-		if (!linkMap.has(url)) {
-			linkMap.set(url, linkCounter++);
-		}
-		const linkNumber = linkMap.get(url)!;
-
-		// 根据选项决定使用中文还是英文格式
-		const linkPrefix = useEnglish ? 'link' : prefix;
-
-		// 返回新的格式 [链接1](原URL) 或 [link1](原URL)
-		return `[${linkPrefix}${toSuperscript(linkNumber)}](${url})`;
-	});
-}
 
 // 定义数据库记录的类型
 type MessageRecord = {
@@ -145,50 +51,6 @@ function getGenModel(env: Env) {
 		baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
 		timeout: aiConfig.timeout,
 	});
-}
-
-/** 将文本折叠成可展开的 Markdown 格式
- * 将长文本折叠成 Telegram 支持的 MarkdownV2 可展开/隐藏格式。
- * 这种格式要求以 `**>` 开始，以 `||` 结束，且内部所有行都以 `>` 作为前缀。
- * @param text 要折叠的文本
- * @returns 格式化后的字符串
- */
-function foldText(text: string): string {
-	return '**>' + text.replace(/\n/g, '\n>') + '||';
-}
-
-// 从命令中提取参数
-function getCommandVar(str: string, delim: string) {
-	return str.slice(str.indexOf(delim) + delim.length);
-}
-
-// 机器人回复的消息模板
-function messageTemplate(s: string) {
-	return (
-		`下面由奢侈的 ${escapeMarkdownV2(aiConfig.model)} 概括群聊信息\n` + s + `\n本开源项目[地址](${escapeMarkdownV2(botConfig.repoUrl)})`
-	);
-}
-/**
- * 修复 LLM 可能输出的错误链接格式，去除LLM训练中引入的幻觉内容tme.cat
- * @param text
- * @returns
- */
-function fixLink(text: string) {
-	return text.replace(/tme\.cat/g, 't.me/c').replace(/\/c\/c/g, '/c');
-}
-
-/**
- * 从消息对象中提取发送者的名称。
- * 如果是频道匿名发送，则返回频道标题；否则返回用户名字。
- * @param msg - Telegram 消息对象。
- * @returns 发送者的名称字符串。
- */
-
-function getUserName(msg: TelegramMessage): string {
-	if (msg.sender_chat?.title) {
-		return msg.sender_chat.title;
-	}
-	return msg.from?.first_name || 'anonymous';
 }
 
 export default {
