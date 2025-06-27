@@ -39,7 +39,7 @@ function dispatchContent(content: string): { type: 'text'; text: string } | { ty
 }
 
 // 获取格式化的发送时间，从未被调用
-//function getSendTime(r: R) {
+//function getSendTime(r: MessageRecord) {
 //  return new Date(r.timeStamp).toLocaleString('zh-CN', {
 //    timeZone: 'Asia/Shanghai',
 //  });
@@ -370,7 +370,8 @@ export default {
 				case 'photo': {
 					const msg = ctx.update.message!;
 					const photo = msg.photo![msg.photo!.length - 1];
-					const file = await ctx.api.getFile(photo.file_id).then((response) => response.arrayBuffer());
+					const file = await ctx.bot.getFile(photo.file_id).then((response) => response.arrayBuffer());
+
 					if (!isJPEGBase64(Buffer.from(file).toString('base64')).isValid) {
 						console.error('not a jpeg');
 						return new Response('ok');
