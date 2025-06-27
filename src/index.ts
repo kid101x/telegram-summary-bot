@@ -212,7 +212,7 @@ export default {
 				return new Response('ok');
 			}
 
-			let res = await ctx.bot.api.sendMessage({
+			let res = await (ctx.api as any).sendMessage(ctx.bot.api.toString(), {
 				chat_id: userId,
 				text: 'bot 已经收到你的问题, 正在思考中...',
 			});
@@ -251,7 +251,7 @@ export default {
 
 				const response_text = processMarkdownLinks(telegramifyMarkdown(result.choices[0].message.content || '', 'keep'));
 
-				res = await ctx.bot.api.sendMessage({
+				res = await (ctx.api as any).sendMessage(ctx.bot.api.toString(), {
 					chat_id: userId,
 					parse_mode: 'MarkdownV2',
 					text: foldText(response_text),
@@ -261,7 +261,10 @@ export default {
 				}
 			} catch (e) {
 				console.error(e);
-				await ctx.bot.api.sendMessage({ chat_id: userId, text: '抱歉，思考时遇到了一些问题，无法回答。' });
+				await (ctx.api as any).sendMessage(ctx.bot.api.toString(), {
+					chat_id: userId,
+					text: '抱歉，思考时遇到了一些问题，无法回答。',
+				});
 			}
 
 			return new Response('ok');
