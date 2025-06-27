@@ -370,7 +370,7 @@ export default {
 				case 'photo': {
 					const msg = ctx.update.message!;
 					const photo = msg.photo![msg.photo!.length - 1];
-					const file = await ctx.bot.getFile(photo.file_id).then((response) => response.arrayBuffer());
+					const file = await ctx.api.getFile(photo.file_id).then((response) => response.arrayBuffer());
 					if (!isJPEGBase64(Buffer.from(file).toString('base64')).isValid) {
 						console.error('not a jpeg');
 						return new Response('ok');
