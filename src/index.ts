@@ -1,5 +1,5 @@
 // 外部库 (External Libraries)
-import TelegramBot, { type TelegramMessage } from '@codebam/cf-workers-telegram-bot';
+import TelegramBot from '@codebam/cf-workers-telegram-bot';
 import OpenAI from 'openai';
 import telegramifyMarkdown from 'telegramify-markdown';
 // Node.js 内置模块 (Built-in Modules)
@@ -7,7 +7,7 @@ import { Buffer } from 'node:buffer';
 // 项目内部模块 (Local Modules)
 import { extractAllOGInfo } from './og';
 import { isJPEGBase64 } from './isJpeg';
-import { IGNORED_KEYWORDS, aiConfig, botConfig, cronConfig, SYSTEM_PROMPTS } from './config'; // <-- 外部参数文件，导入忽略列表
+import { IGNORED_KEYWORDS, aiConfig, cronConfig, SYSTEM_PROMPTS } from './config'; // <-- 外部参数文件，导入忽略列表
 // ⬇️ --- 新增的 Imports --- ⬇️
 import { escapeMarkdownV2, foldText, processMarkdownLinks } from './utils/markdown';
 import { fixLink, getCommandVar, getMessageLink, getUserName, messageTemplate } from './utils/telegram';
@@ -150,7 +150,7 @@ export default {
 		console.debug('cron processed');
 	},
 
-	fetch: async (request: Request, env: Env, ctx: ExecutionContext) => {
+	fetch: async (request: Request, env: Env, _ctx: ExecutionContext) => {
 		// 将 bot 实例创建与事件注册分离，增强可读性 -->
 		const bot = new TelegramBot(env.SECRET_TELEGRAM_API_TOKEN);
 
