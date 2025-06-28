@@ -173,3 +173,4 @@ dist
 
 # Ignore note files for analysis
 .Note/
+.DS_Store

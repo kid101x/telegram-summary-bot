@@ -350,7 +350,7 @@ export default {
 
 					let finalContent = content;
 					if (msg.reply_to_message?.message_id) {
-						finalContent = `回复 ${getMessageLink({ groupId: msg.chat.id, messageId: msg.reply_to_message.message_id })}: ${content}`;
+						finalContent = `回复 ${getMessageLink({ groupId: String(msg.chat.id), messageId: msg.reply_to_message.message_id })}: ${content}`;
 					}
 					if (content.startsWith('http') && !content.includes(' ')) {
 						finalContent = await extractAllOGInfo(content);
