@@ -13,7 +13,7 @@ export async function saveMessage(
 	message: Omit<MessageRecord, 'id' | 'groupName'> & { groupName?: string },
 ): Promise<void> {
 	const { groupId, timeStamp, userName, content, messageId } = message;
-	const id = getMessageLink({ groupId: groupId, messageId: messageId });
+	const id = getMessageLink({ groupId: String(groupId), messageId: messageId });
 	const groupName = message.groupName || 'anonymous';
 
 	try {
@@ -40,7 +40,7 @@ export async function getMessagesByCount(db: D1Database, groupId: number | strin
 			`
         WITH latest_n AS (
             SELECT * FROM Messages
-            WHERE groupId = ?1
+            WHERE ROUND(groupId) = ?1
             ORDER BY timeStamp DESC
             LIMIT ?2
         )
@@ -66,7 +66,7 @@ export async function getMessagesByHours(db: D1Database, groupId: number | strin
 			`
         SELECT *
         FROM Messages
-        WHERE groupId = ?1 AND timeStamp >= ?2
+        WHERE ROUND(groupId) = ?1 AND timeStamp >= ?2
         ORDER BY timeStamp ASC
         `,
 		)
@@ -86,7 +86,7 @@ export async function searchMessages(db: D1Database, groupId: number | string, s
 		.prepare(
 			`
         SELECT * FROM Messages
-        WHERE groupId = ?1 AND content GLOB ?2
+        WHERE ROUND(groupId) = ?1 AND content GLOB ?2
         ORDER BY timeStamp DESC
         LIMIT 2000
         `,

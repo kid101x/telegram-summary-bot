@@ -350,14 +350,14 @@ export default {
 
 					let finalContent = content;
 					if (msg.reply_to_message?.message_id) {
-						finalContent = `回复 ${getMessageLink({ groupId: String(msg.chat.id), messageId: msg.reply_to_message.message_id })}: ${content}`;
+						finalContent = `回复 ${getMessageLink({ groupId: msg.chat.id, messageId: msg.reply_to_message.message_id })}: ${content}`;
 					}
 					if (content.startsWith('http') && !content.includes(' ')) {
 						finalContent = await extractAllOGInfo(content);
 					}
 
 					await saveMessage(env.DB, {
-						groupId: String(msg.chat.id),
+						groupId: msg.chat.id,
 						timeStamp: Date.now(),
 						userName: getUserName(msg),
 						content: finalContent,
@@ -379,7 +379,7 @@ export default {
 					const content = 'data:image/jpeg;base64,' + Buffer.from(file).toString('base64');
 
 					await saveMessage(env.DB, {
-						groupId: String(msg.chat.id),
+						groupId: msg.chat.id,
 						timeStamp: Date.now(),
 						userName: getUserName(msg),
 						content: content,
@@ -395,7 +395,7 @@ export default {
 		bot.on(':edited_message', async (ctx) => {
 			const msg = ctx.update.edited_message!;
 			await saveMessage(env.DB, {
-				groupId: String(msg.chat.id),
+				groupId: msg.chat.id,
 				timeStamp: Date.now(),
 				userName: getUserName(msg),
 				content: msg.text || '',
