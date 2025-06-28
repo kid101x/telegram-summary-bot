@@ -5,7 +5,7 @@
  */
 export type MessageRecord = {
 	id: string; // 主键，通常是消息链接
-	groupId: string;
+	groupId: number;
 	userName: string;
 	content: string;
 	messageId: number;
