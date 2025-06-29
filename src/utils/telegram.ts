@@ -53,7 +53,5 @@ export function getCommandVar(str: string, delim: string): string {
  * @param s 核心内容
  */
 export function messageTemplate(s: string): string {
-	return (
-		`下面由财大气粗的 ${escapeMarkdownV2(aiConfig.model)} 概括群聊信息\n` + s + `\n本开源项目[地址](${escapeMarkdownV2(botConfig.repoUrl)})`
-	);
+	return `下面由财大气粗的 ${escapeMarkdownV2(aiConfig.model)} 概括群聊信息\n` + s;
 }
