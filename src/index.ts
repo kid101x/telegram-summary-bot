@@ -371,7 +371,12 @@ export default {
 				case 'photo': {
 					const msg = ctx.update.message!;
 					const photo = msg.photo![msg.photo!.length - 1];
-					const file = await (ctx.bot as any).getFile(photo.file_id).then((response: Response) => response.arrayBuffer());
+					const response = await ctx.getFile(photo.file_id);
+					if (!response.ok) {
+						console.error('Failed to get file:', await response.text());
+						return new Response('ok');
+					}
+					const file = await response.arrayBuffer();
 
 					if (!isJPEGBase64(Buffer.from(file).toString('base64')).isValid) {
 						console.error('not a jpeg');
