@@ -8,15 +8,13 @@ import { escapeMarkdownV2 } from './markdown';
  * 生成消息的永久链接，适应私有群ID（如-987654321）。
  * @param r 包含 groupId 和 messageId 的对象
  */
-export function getMessageLink(r: { groupId: string | number; messageId: number }): string {
-	// 1. 确保我们处理的是一个整数，避免 D1 可能返回浮点数（如 123.0）导致的问题。
-	// Number() 和 Math.trunc() 可以安全地处理字符串或数字输入。
-	const groupIdNum = Math.trunc(Number(r.groupId));
-	const groupIdStr = groupIdNum.toString();
+export function getMessageLink(r: { groupId: number; messageId: number }): string {
+	// 1. groupId 已经是 number，无需转换
+	const groupIdStr = r.groupId.toString();
 	// 2. 根据群组类型处理 ID。
 	// 超级群组的 ID 以 '-100' 开头，链接中需要移除此部分。
 	// 其他群组（如果可链接）则使用其 ID 的绝对值。
-	const processedId = groupIdStr.startsWith('-100') ? groupIdStr.slice(4) : Math.abs(groupIdNum).toString();
+	const processedId = groupIdStr.startsWith('-100') ? groupIdStr.slice(4) : Math.abs(r.groupId).toString();
 	return `https://t.me/c/${processedId}/${r.messageId}`;
 }
 

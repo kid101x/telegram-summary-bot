@@ -13,7 +13,7 @@ export async function saveMessage(
 	message: Omit<MessageRecord, 'id' | 'groupName'> & { groupName?: string },
 ): Promise<void> {
 	const { groupId, timeStamp, userName, content, messageId } = message;
-	const id = getMessageLink({ groupId: String(groupId), messageId: messageId });
+	const id = getMessageLink({ groupId: groupId, messageId: messageId });
 	const groupName = message.groupName || 'anonymous';
 
 	try {
@@ -34,13 +34,13 @@ export async function saveMessage(
  * @param groupId 群组ID
  * @param limit 消息数量
  */
-export async function getMessagesByCount(db: D1Database, groupId: number | string, limit: number): Promise<MessageRecord[]> {
+export async function getMessagesByCount(db: D1Database, groupId: number, limit: number): Promise<MessageRecord[]> {
 	const { results } = await db
 		.prepare(
 			`
         WITH latest_n AS (
             SELECT * FROM Messages
-            WHERE ROUND(groupId) = ?1
+            WHERE groupId = ?1
             ORDER BY timeStamp DESC
             LIMIT ?2
         )
@@ -59,14 +59,14 @@ export async function getMessagesByCount(db: D1Database, groupId: number | strin
  * @param groupId 群组ID
  * @param hours 小时数
  */
-export async function getMessagesByHours(db: D1Database, groupId: number | string, hours: number): Promise<MessageRecord[]> {
+export async function getMessagesByHours(db: D1Database, groupId: number, hours: number): Promise<MessageRecord[]> {
 	const since = Date.now() - hours * 60 * 60 * 1000;
 	const { results } = await db
 		.prepare(
 			`
         SELECT *
         FROM Messages
-        WHERE ROUND(groupId) = ?1 AND timeStamp >= ?2
+        WHERE groupId = ?1 AND timeStamp >= ?2
         ORDER BY timeStamp ASC
         `,
 		)
@@ -81,12 +81,12 @@ export async function getMessagesByHours(db: D1Database, groupId: number | strin
  * @param groupId 群组ID
  * @param searchTerm 搜索词 (支持 GLOB)
  */
-export async function searchMessages(db: D1Database, groupId: number | string, searchTerm: string): Promise<MessageRecord[]> {
+export async function searchMessages(db: D1Database, groupId: number, searchTerm: string): Promise<MessageRecord[]> {
 	const { results } = await db
 		.prepare(
 			`
         SELECT * FROM Messages
-        WHERE ROUND(groupId) = ?1 AND content GLOB ?2
+        WHERE groupId = ?1 AND content GLOB ?2
         ORDER BY timeStamp DESC
         LIMIT 2000
         `,
@@ -101,7 +101,7 @@ export async function searchMessages(db: D1Database, groupId: number | string, s
  * @param db D1Database 实例
  * @param threshold 消息数阈值
  */
-export async function getActiveGroups(db: D1Database, threshold: number): Promise<{ groupId: string; message_count: number }[]> {
+export async function getActiveGroups(db: D1Database, threshold: number): Promise<{ groupId: number; message_count: number }[]> {
 	const twentyFourHoursAgo = Date.now() - 24 * 3600 * 1000;
 	const { results } = await db
 		.prepare(
@@ -121,7 +121,7 @@ export async function getActiveGroups(db: D1Database, threshold: number): Promis
         `,
 		)
 		.bind(twentyFourHoursAgo, threshold)
-		.all<{ groupId: string; message_count: number }>();
+		.all<{ groupId: number; message_count: number }>();
 	return results || [];
 }
 

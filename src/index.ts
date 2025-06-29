@@ -70,7 +70,7 @@ export default {
 		const cache = caches.default;
 		const cacheKey = new Request(`https://dummy-url/${env.SECRET_TELEGRAM_API_TOKEN}`);
 		const cachedResponse = await cache.match(cacheKey);
-		let groups: { groupId: string; message_count: number }[] = [];
+		let groups: { groupId: number; message_count: number }[] = [];
 		if (cachedResponse) {
 			console.debug('Using cached response');
 			groups = await cachedResponse.json();
@@ -123,7 +123,7 @@ export default {
 				temperature: aiConfig.temperature,
 			});
 
-			if (cronConfig.skipSummaryGroupIds.includes(parseInt(group.groupId as string))) {
+			if (cronConfig.skipSummaryGroupIds.includes(group.groupId)) {
 				continue;
 			}
 			console.debug('send message to', group.groupId);
