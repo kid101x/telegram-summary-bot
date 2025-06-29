@@ -150,6 +150,7 @@ export default {
 		console.debug('cron processed');
 	},
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	fetch: async (request: Request, env: Env, _ctx: ExecutionContext) => {
 		// 将 bot 实例创建与事件注册分离，增强可读性 -->
 		const bot = new TelegramBot(env.SECRET_TELEGRAM_API_TOKEN);
