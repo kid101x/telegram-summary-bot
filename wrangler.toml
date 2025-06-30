@@ -18,7 +18,9 @@ enabled = true
 mode = "smart"
 
 [triggers]
-crons = ["*/6 16 * * *"] # utc+8 0 0,1 * * *
+# 每天 UTC 15:23 (上海时间 23:23) 触发总结任务
+# 每天 UTC 18:42 (上海时间 02:42) 触发清理任务
+crons = ["23 15 * * *", "42 18 * * *"]
 
 # Variable bindings. These are arbitrary, plaintext strings (similar to environment variables)
 # Docs:

@@ -56,98 +56,118 @@ function getGenModel(env: Env) {
 
 export default {
 	async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
-		console.debug('Scheduled task starting:', new Date().toISOString());
-		const date = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
-		// Clean up oldest 50000 messages
-		// ctx.waitUntil 异步延迟执行
-		if (date.getHours() === 0 && date.getMinutes() < 6) {
-			// 使用数据库模块函数进行清理
-			ctx.waitUntil(cleanupOldMessages(env.DB, cronConfig.messageCleanupThreshold));
-			ctx.waitUntil(cleanupOldImages(env.DB, cronConfig.imageRetentionPeriodMs));
+		console.log(`[cron] event start, cron: ${controller.cron}`);
+
+		switch (controller.cron) {
+			// 每天上海时间 23:23 (UTC 15:23) 触发总结任务
+			case '23 15 * * *': {
+				console.log('[cron] summary job start');
+				// 总结最近 24 小时 42 分钟的内容 (24 * 60 + 42 = 1482 分钟)
+				const summary_period_minutes = 1482;
+				ctx.waitUntil(this.handleScheduledSummary(env, summary_period_minutes));
+				break;
+			}
+			// 每天上海时间 02:42 (UTC 18:42) 触发清理任务
+			case '42 18 * * *': {
+				console.log('[cron] cleanup job start');
+				ctx.waitUntil(this.handleScheduledCleanup(env));
+				break;
+			}
+			default: {
+				console.log(`[cron] unknown cron job: ${controller.cron}`);
+				break;
+			}
 		}
+	},
 
-		// 获取需要处理的群组列表，并进行缓存
-		const cache = caches.default;
-		const cacheKey = new Request(`https://dummy-url/${env.SECRET_TELEGRAM_API_TOKEN}`);
-		const cachedResponse = await cache.match(cacheKey);
-		let groups: { groupId: number; message_count: number }[] = [];
-		if (cachedResponse) {
-			console.debug('Using cached response');
-			groups = await cachedResponse.json();
-		} else {
-			console.debug('Fetching groups from DB');
-			// 使用数据库模块函数获取活跃群组
-			groups = await getActiveGroups(env.DB, cronConfig.dailySummaryMessageThreshold);
-			ctx.waitUntil(
-				cache.put(
-					cacheKey,
-					new Response(JSON.stringify(groups), {
-						headers: { 'content-type': 'application/json', 'Cache-Control': 's-maxage=10000' }, // > 7200 < 86400
-					}),
-				),
-			);
-		}
+	async handleScheduledSummary(env: Env, summary_period_minutes: number) {
+		console.log('[cron] summary job: fetching active groups.');
+		const groups = await getActiveGroups(env.DB, cronConfig.dailySummaryMessageThreshold);
+		console.log(`[cron] summary job: found ${groups.length} active groups.`);
 
-		// 分批处理群组
-		const batch = Math.floor(date.getMinutes() / 6); // 0 <= batch < 10
-		console.debug('Batch:', batch);
-		console.debug('Found groups:', groups.length, JSON.stringify(groups));
-
-		for (const [id, group] of groups.entries()) {
-			if (id % 10 !== batch) continue;
-
-			console.debug(`Processing group ${id + 1}/${groups.length}: ${group.groupId}`);
-			// 使用数据库模块函数获取消息
-			const messages = await getMessagesByHours(env.DB, group.groupId, 24);
-
-			if (messages.length === 0) continue;
-
-			const result = await getGenModel(env).chat.completions.create({
-				model: aiConfig.model,
-				messages: [
-					{
-						role: 'system',
-						content: SYSTEM_PROMPTS.summarizeChat,
-					},
-					{
-						role: 'user',
-						content: messages.flatMap((r: MessageRecord) => [
-							dispatchContent('===================='),
-							dispatchContent(`${r.userName}:`),
-							dispatchContent(r.content),
-							dispatchContent(getMessageLink(r)),
-						]),
-					},
-				],
-				max_tokens: 4096,
-				temperature: aiConfig.temperature,
-			});
-
+		for (const group of groups) {
 			if (cronConfig.skipSummaryGroupIds.includes(group.groupId)) {
+				console.log(`[cron] skipping summary for group ${group.groupId} as per config.`);
 				continue;
 			}
-			console.debug('send message to', group.groupId);
 
-			// Use fetch to send message directly to Telegram API
-			const res = await fetch(`https://api.telegram.org/bot${env.SECRET_TELEGRAM_API_TOKEN}/sendMessage`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({
-					chat_id: group.groupId,
-					text: messageTemplate(
-						foldText(fixLink(processMarkdownLinks(telegramifyMarkdown(result.choices[0].message.content || '', 'keep')))),
-					),
-					parse_mode: 'MarkdownV2',
-				}),
-			});
-			if (!res?.ok) {
-				console.error('Failed to send reply', res?.statusText, await res?.text());
+			console.log(`[cron] processing summary for group ${group.groupId}`);
+			const summary_period_hours = summary_period_minutes / 60.0;
+			const messages = await getMessagesByHours(env.DB, group.groupId, summary_period_hours);
+
+			if (messages.length === 0) {
+				console.log(`[cron] no messages found for group ${group.groupId} in the last ${summary_period_hours} hours.`);
+				continue;
+			}
+
+			try {
+				const result = await getGenModel(env).chat.completions.create({
+					model: aiConfig.model,
+					messages: [
+						{
+							role: 'system',
+							content: SYSTEM_PROMPTS.summarizeChat,
+						},
+						{
+							role: 'user',
+							content: messages.flatMap((r: MessageRecord) => [
+								dispatchContent('===================='),
+								dispatchContent(`${r.userName}:`),
+								dispatchContent(r.content),
+								dispatchContent(getMessageLink(r)),
+							]),
+						},
+					],
+					max_tokens: 4096,
+					temperature: aiConfig.temperature,
+				});
+
+				const summaryContent = result.choices[0].message.content || '';
+				if (!summaryContent) {
+					console.log(`[cron] summary generation returned empty content for group ${group.groupId}`);
+					continue;
+				}
+
+				const text = messageTemplate(foldText(fixLink(processMarkdownLinks(telegramifyMarkdown(summaryContent, 'keep')))));
+
+				const message = `#summary
+
+${text}`;
+
+				const res = await fetch(`https://api.telegram.org/bot${env.SECRET_TELEGRAM_API_TOKEN}/sendMessage`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						chat_id: group.groupId,
+						text: message,
+						parse_mode: 'MarkdownV2',
+					}),
+				});
+
+				if (!res.ok) {
+					console.error(`[cron] failed to send summary to group ${group.groupId}`, res.statusText, await res.text());
+				} else {
+					console.log(`[cron] summary sent to group ${group.groupId}`);
+				}
+			} catch (e) {
+				console.error(`[cron] error processing summary for group ${group.groupId}`, e);
 			}
 		}
+		console.log('[cron] summary job finished.');
+	},
 
-		console.debug('cron processed');
+	async handleScheduledCleanup(env: Env) {
+		console.log('[cron] cleanup job: starting global cleanup.');
+		try {
+			// The cleanup functions might return the number of deleted items.
+			const messagesCleaned = await cleanupOldMessages(env.DB, cronConfig.messageCleanupThreshold);
+			console.log(`[cron] cleanup job: cleaned up ${messagesCleaned} old messages.`);
+			const imagesCleaned = await cleanupOldImages(env.DB, cronConfig.imageRetentionPeriodMs);
+			console.log(`[cron] cleanup job: cleaned up ${imagesCleaned} old images.`);
+		} catch (e) {
+			console.error('[cron] error during cleanup job', e);
+		}
+		console.log('[cron] cleanup job finished.');
 	},
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
