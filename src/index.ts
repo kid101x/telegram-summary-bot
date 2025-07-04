@@ -130,9 +130,9 @@ export default {
 
 				const text = messageTemplate(foldText(fixLink(processMarkdownLinks(telegramifyMarkdown(summaryContent, 'keep')))));
 
-				const message = `#summary
+				const message = `\\#summary
 
-${text}`;
+					${text}`;
 
 				const res = await fetch(`https://api.telegram.org/bot${env.SECRET_TELEGRAM_API_TOKEN}/sendMessage`, {
 					method: 'POST',
