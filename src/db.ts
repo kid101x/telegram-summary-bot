@@ -1,6 +1,6 @@
 // src/db.ts
 
-import type { MessageRecord } from './types'; // 我们将把类型定义也移出来
+import type { MessageRecord } from './types';
 import { getMessageLink } from './utils/telegram';
 
 /**

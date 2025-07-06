@@ -1,14 +1,12 @@
 // 外部库 (External Libraries)
 import TelegramBot from '@codebam/cf-workers-telegram-bot';
-import OpenAI from 'openai';
 import telegramifyMarkdown from 'telegramify-markdown';
 // Node.js 内置模块 (Built-in Modules)
 import { Buffer } from 'node:buffer';
 // 项目内部模块 (Local Modules)
 import { extractAllOGInfo } from './og';
 import { isJPEGBase64 } from './isJpeg';
-import { IGNORED_KEYWORDS, aiConfig, cronConfig, SYSTEM_PROMPTS } from './config'; // <-- 外部参数文件，导入忽略列表
-// ⬇️ --- 新增的 Imports --- ⬇️
+import { IGNORED_KEYWORDS, cronConfig } from './config'; // <-- 移除 SYSTEM_PROMPTS
 import { escapeMarkdownV2, foldText, processMarkdownLinks } from './utils/markdown';
 import { fixLink, getCommandVar, getMessageLink, getUserName, messageTemplate } from './utils/telegram';
 import {
@@ -20,39 +18,10 @@ import {
 	cleanupOldImages,
 	searchMessages,
 } from './db';
+import { getSummary, answerQuestion } from './ai'; // <-- 新增 ai 模块导入
 import type { MessageRecord } from './types';
 
-// 定义消息内容的类型，可以是文本或图片
-function dispatchContent(content: string): { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } } {
-	if (content.startsWith('data:image/jpeg;base64,')) {
-		return {
-			type: 'image_url',
-			image_url: {
-				url: content,
-			},
-		};
-	}
-	return {
-		type: 'text',
-		text: content,
-	};
-}
-
-// 获取格式化的发送时间，从未被调用
-//function getSendTime(r: MessageRecord) {
-//  return new Date(r.timeStamp).toLocaleString('zh-CN', {
-//    timeZone: 'Asia/Shanghai',
-//  });
-//}
-
-// 获取 AI 模型实例
-function getGenModel(env: Env) {
-	return new OpenAI({
-		apiKey: env.GEMINI_API_KEY,
-		baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-		timeout: aiConfig.timeout,
-	});
-}
+// 移除了 dispatchContent 和 getGenModel 函数，因为它们已经被抽象到 src/ai.ts
 
 export default {
 	async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
@@ -101,36 +70,20 @@ export default {
 			}
 
 			try {
-				const result = await getGenModel(env).chat.completions.create({
-					model: aiConfig.model,
-					messages: [
-						{
-							role: 'system',
-							content: SYSTEM_PROMPTS.summarizeChat,
-						},
-						{
-							role: 'user',
-							content: messages.flatMap((r: MessageRecord) => [
-								dispatchContent('===================='),
-								dispatchContent(`${r.userName}:`),
-								dispatchContent(r.content),
-								dispatchContent(getMessageLink(r)),
-							]),
-						},
-					],
-					max_tokens: 4096,
-					temperature: aiConfig.temperature,
-				});
+				// <-- 使用新的 getSummary 函数
+				const summaryContent = await getSummary(env, messages);
 
-				const summaryContent = result.choices[0].message.content || '';
 				if (!summaryContent) {
 					console.log(`[cron] summary generation returned empty content for group ${group.groupId}`);
 					continue;
 				}
 
-				const text = messageTemplate(foldText(fixLink(processMarkdownLinks(telegramifyMarkdown(summaryContent, 'keep')))));
+				const text = messageTemplate(
+					foldText(fixLink(processMarkdownLinks(telegramifyMarkdown(summaryContent, 'keep')))),
+					env.AI_MODEL_NAME || 'gemini-pro',
+				);
 
-				const message = `\\#summary
+				const message = `${escapeMarkdownV2('#summary')}
 
 					${text}`;
 
@@ -159,7 +112,7 @@ export default {
 	async handleScheduledCleanup(env: Env) {
 		console.log('[cron] cleanup job: starting global cleanup.');
 		try {
-			// The cleanup functions might return the number of deleted items.
+			// 清理函数可能会返回已删除项目的数量。
 			const messagesCleaned = await cleanupOldMessages(env.DB, cronConfig.messageCleanupThreshold);
 			console.log(`[cron] cleanup job: cleaned up ${messagesCleaned} old messages.`);
 			const imagesCleaned = await cleanupOldImages(env.DB, cronConfig.imageRetentionPeriodMs);
@@ -172,10 +125,8 @@ export default {
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	fetch: async (request: Request, env: Env, _ctx: ExecutionContext) => {
-		// 将 bot 实例创建与事件注册分离，增强可读性 -->
 		const bot = new TelegramBot(env.SECRET_TELEGRAM_API_TOKEN);
 
-		// 恢复所有命令处理器，并使用新的数据库模块函数 -->
 		bot.on('version', async (ctx) => {
 			// /version 命令处理器
 			// 读取由 CI/CD 注入的 GIT_COMMIT_SHA 变量
@@ -187,10 +138,7 @@ export default {
 		});
 
 		bot.on('status', async (ctx) => {
-			const res = (await ctx.reply('我家还蛮大的'))!;
-			if (!res.ok) {
-				console.error('Error sending message:', res);
-			}
+			await ctx.reply('我家还蛮大的');
 			return new Response('ok');
 		});
 
@@ -206,7 +154,6 @@ export default {
 
 			const results = await searchMessages(env.DB, groupId, `*${queryTerm}*`);
 
-			// <-- 修正：仅对用户内容进行转义，以保护 Markdown 链接 -->
 			const replyLines = results.map((r: MessageRecord) => {
 				const userName = escapeMarkdownV2(r.userName);
 				const content = escapeMarkdownV2(r.content);
@@ -215,10 +162,7 @@ export default {
 			});
 			const replyText = `查询结果:\n${replyLines.join('\n')}`;
 
-			const res = (await ctx.reply(replyText, 'MarkdownV2'))!;
-			if (!res.ok) {
-				console.error('Error sending message:', res.status, res.statusText, await res.text());
-			}
+			await ctx.reply(replyText, 'MarkdownV2');
 			return new Response('ok');
 		});
 
@@ -245,32 +189,9 @@ export default {
 			const messages = await getMessagesByCount(env.DB, groupId, 1000);
 
 			try {
-				const result = await getGenModel(env).chat.completions.create({
-					model: aiConfig.model,
-					messages: [
-						{
-							role: 'system',
-							content: SYSTEM_PROMPTS.answerQuestion,
-						},
-						{
-							role: 'user',
-							content: messages.flatMap((r: MessageRecord) => [
-								dispatchContent('===================='),
-								dispatchContent(`${r.userName}:`),
-								dispatchContent(r.content),
-								dispatchContent(getMessageLink(r)),
-							]),
-						},
-						{
-							role: 'user',
-							content: `问题：${question}`,
-						},
-					],
-					max_tokens: 4096,
-					temperature: aiConfig.temperature,
-				});
-
-				const response_text = processMarkdownLinks(telegramifyMarkdown(result.choices[0].message.content || '', 'keep'));
+				// <-- 使用新的 answerQuestion 函数
+				const answer = await answerQuestion(env, messages, question);
+				const response_text = processMarkdownLinks(telegramifyMarkdown(answer, 'keep'));
 
 				res = await (ctx.api as any).sendMessage(ctx.bot.api.toString(), {
 					chat_id: userId,
@@ -284,7 +205,7 @@ export default {
 				console.error(e);
 				await (ctx.api as any).sendMessage(ctx.bot.api.toString(), {
 					chat_id: userId,
-					text: '抱歉，思考时遇到了一些问题，无法回答。',
+					text: `抱歉，思考时遇到了一些问题，无法回答: ${e instanceof Error ? e.message : 'Unknown error'}`,
 				});
 			}
 
@@ -313,38 +234,18 @@ export default {
 
 			if (messages.length > 0) {
 				try {
-					const result = await getGenModel(env).chat.completions.create({
-						model: aiConfig.model,
-						// reasoning_effort,
-						messages: [
-							{
-								role: 'system',
-								content: SYSTEM_PROMPTS.summarizeChat,
-							},
-							{
-								role: 'user',
-								content: messages.flatMap((r: MessageRecord) => [
-									dispatchContent('===================='),
-									dispatchContent(`${r.userName}:`),
-									dispatchContent(r.content),
-									dispatchContent(getMessageLink(r)),
-								]),
-							},
-						],
-						max_tokens: 4096,
-						temperature: aiConfig.temperature,
-					});
-
-					const res = await ctx.reply(
-						messageTemplate(foldText(fixLink(processMarkdownLinks(telegramifyMarkdown(result.choices[0].message.content || '', 'keep'))))),
+					// <-- 使用新的 getSummary 函数
+					const summaryContent = await getSummary(env, messages);
+					await ctx.reply(
+						messageTemplate(
+							foldText(fixLink(processMarkdownLinks(telegramifyMarkdown(summaryContent, 'keep')))),
+							env.AI_MODEL_NAME || 'gemini-pro',
+						),
 						'MarkdownV2',
 					);
-					if (!res?.ok) {
-						console.error('Failed to send reply', res?.statusText, await res?.text());
-					}
 				} catch (e) {
 					console.error(e);
-					await ctx.reply('生成摘要时出错，请稍后再试。');
+					await ctx.reply(`生成摘要时出错: ${e instanceof Error ? e.message : 'Unknown error'}`);
 				}
 			} else {
 				await ctx.reply('在此期间内没有足够的消息可供总结。');
@@ -365,7 +266,7 @@ export default {
 					const content = msg.text || '';
 
 					// <-- 精确匹配忽略逻辑
-					if (IGNORED_KEYWORDS.includes(content)) {
+					if (IGNORED_KEYWORDS.some((keyword) => content.startsWith(keyword))) {
 						return new Response('ok');
 					}
 
