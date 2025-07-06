@@ -1,5 +1,7 @@
 // src/db.ts
 
+const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
+
 import type { MessageRecord } from './types';
 import { getMessageLink } from './utils/telegram';
 
@@ -102,7 +104,7 @@ export async function searchMessages(db: D1Database, groupId: number, searchTerm
  * @param threshold 消息数阈值
  */
 export async function getActiveGroups(db: D1Database, threshold: number): Promise<{ groupId: number; message_count: number }[]> {
-	const twentyFourHoursAgo = Date.now() - 24 * 3600 * 1000;
+	const twentyFourHoursAgo = Date.now() - ONE_DAY_IN_MS;
 	const { results } = await db
 		.prepare(
 			`

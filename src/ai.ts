@@ -50,12 +50,10 @@ function createOpenAIClient(env: Env): OpenAI {
 	}
 
 	return new OpenAI({
-		apiKey: apiKey,
-		baseURL: baseURL,
-		defaultHeaders: {
-			// 超时单位为秒
-			'cf-aig-request-timeout': `${aiConfig.timeout}`,
-		},
+		apiKey,
+		baseURL,
+		// 使用 OpenAI SDK 标准的超时配置 (单位: 毫秒), 这比使用自定义头更具兼容性和可移植性。
+		timeout: aiConfig.timeout, // 例如: 30000
 	});
 }
 
@@ -74,7 +72,7 @@ async function getAIResponse(
 	question?: string,
 ): Promise<string> {
 	const ai = createOpenAIClient(env);
-	const model = env.AI_MODEL_NAME || 'google/gemini-2.0-flash';
+	const model = env.AI_MODEL_NAME || 'google-ai-studio/gemini-2.0-flash';
 
 	const systemPrompt = SYSTEM_PROMPTS[promptType];
 	const contentParts: (OpenAI.Chat.Completions.ChatCompletionContentPartText | OpenAI.Chat.Completions.ChatCompletionContentPartImage)[] =

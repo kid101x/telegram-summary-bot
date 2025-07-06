@@ -1,7 +1,6 @@
 // src/utils/telegram.ts
 
 import type { TelegramMessage } from '@codebam/cf-workers-telegram-bot';
-import { aiConfig } from '../config';
 import { escapeMarkdownV2 } from './markdown';
 
 /**

@@ -32,7 +32,9 @@ export default {
 			case '23 15 * * *': {
 				console.log('[cron] summary job start');
 				// 总结最近 24 小时 42 分钟的内容 (24 * 60 + 42 = 1482 分钟)
-				const summary_period_minutes = 1482;
+				const SUMMARY_HOURS = 24;
+				const SUMMARY_OVERLAP_MINUTES = 42;
+				const summary_period_minutes = SUMMARY_HOURS * 60 + SUMMARY_OVERLAP_MINUTES;
 				ctx.waitUntil(this.handleScheduledSummary(env, summary_period_minutes));
 				break;
 			}
@@ -80,7 +82,7 @@ export default {
 
 				const text = messageTemplate(
 					foldText(fixLink(processMarkdownLinks(telegramifyMarkdown(summaryContent, 'keep')))),
-					env.AI_MODEL_NAME || 'gemini-2.0-flash',
+					env.AI_MODEL_NAME || 'google-ai-studio/gemini-2.0-flash',
 				);
 
 				const message = `${escapeMarkdownV2('#summary')}
@@ -113,10 +115,12 @@ export default {
 		console.log('[cron] cleanup job: starting global cleanup.');
 		try {
 			// 清理函数可能会返回已删除项目的数量。
-			const messagesCleaned = await cleanupOldMessages(env.DB, cronConfig.messageCleanupThreshold);
-			console.log(`[cron] cleanup job: cleaned up ${messagesCleaned} old messages.`);
-			const imagesCleaned = await cleanupOldImages(env.DB, cronConfig.imageRetentionPeriodMs);
-			console.log(`[cron] cleanup job: cleaned up ${imagesCleaned} old images.`);
+			const messagesCleaned = await cleanupOldMessages(env.DB, cronConfig.messageCleanupThreshold); // 保留最新的 N 条
+			console.log(`[cron] cleanup job: cleaned up ${messagesCleaned} old messages (retaining last ${cronConfig.messageCleanupThreshold}).`);
+			const imagesCleaned = await cleanupOldImages(env.DB, cronConfig.imageRetentionPeriodMs); // 清理 N 天前的图片
+			const retentionDays = cronConfig.imageRetentionPeriodMs / (24 * 60 * 60 * 1000);
+			// 将计算逻辑从模板字符串中提取出来，提高代码清晰度并解决潜在的 linter 问题。
+			console.log(`[cron] cleanup job: cleaned up ${imagesCleaned} old images (older than ${retentionDays} days).`);
 		} catch (e) {
 			console.error('[cron] error during cleanup job', e);
 		}
@@ -239,7 +243,7 @@ export default {
 					await ctx.reply(
 						messageTemplate(
 							foldText(fixLink(processMarkdownLinks(telegramifyMarkdown(summaryContent, 'keep')))),
-							env.AI_MODEL_NAME || 'gemini-2.0-flash',
+							env.AI_MODEL_NAME || 'google-ai-studio/gemini-2.0-flash',
 						),
 						'MarkdownV2',
 					);
