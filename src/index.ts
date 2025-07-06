@@ -23,6 +23,82 @@ import type { MessageRecord } from './types';
 
 // 移除了 dispatchContent 和 getGenModel 函数，因为它们已经被抽象到 src/ai.ts
 
+// --- Refactored Scheduled Task Handlers ---
+
+async function handleScheduledSummary(env: Env, summary_period_minutes: number) {
+	console.log('[cron] summary job: fetching active groups.');
+	const groups = await getActiveGroups(env.DB, cronConfig.dailySummaryMessageThreshold);
+	console.log(`[cron] summary job: found ${groups.length} active groups.`);
+
+	for (const group of groups) {
+		if (cronConfig.skipSummaryGroupIds.includes(group.groupId)) {
+			console.log(`[cron] skipping summary for group ${group.groupId} as per config.`);
+			continue;
+		}
+
+		console.log(`[cron] processing summary for group ${group.groupId}`);
+		const summary_period_hours = summary_period_minutes / 60.0;
+		const messages = await getMessagesByHours(env.DB, group.groupId, summary_period_hours);
+
+		if (messages.length === 0) {
+			console.log(`[cron] no messages found for group ${group.groupId} in the last ${summary_period_hours} hours.`);
+			continue;
+		}
+
+		try {
+			// <-- 使用新的 getSummary 函数
+			const summaryContent = await getSummary(env, messages);
+
+			if (!summaryContent) {
+				console.log(`[cron] summary generation returned empty content for group ${group.groupId}`);
+				continue;
+			}
+
+			const text = messageTemplate(
+				foldText(fixLink(processMarkdownLinks(telegramifyMarkdown(summaryContent, 'keep')))),
+				env.AI_MODEL_NAME || 'google-ai-studio/gemini-2.0-flash',
+			);
+
+			const message = `${escapeMarkdownV2('#summary')}\n\n\t${text}`;
+
+			const res = await fetch(`https://api.telegram.org/bot${env.SECRET_TELEGRAM_API_TOKEN}/sendMessage`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					chat_id: group.groupId,
+					text: message,
+					parse_mode: 'MarkdownV2',
+				}),
+			});
+
+			if (!res.ok) {
+				console.error(`[cron] failed to send summary to group ${group.groupId}`, res.statusText, await res.text());
+			} else {
+				console.log(`[cron] summary sent to group ${group.groupId}`);
+			}
+		} catch (e) {
+			console.error(`[cron] error processing summary for group ${group.groupId}`, e);
+		}
+	}
+	console.log('[cron] summary job finished.');
+}
+
+async function handleScheduledCleanup(env: Env) {
+	console.log('[cron] cleanup job: starting global cleanup.');
+	try {
+		// 清理函数可能会返回已删除项目的数量。
+		const messagesCleaned = await cleanupOldMessages(env.DB, cronConfig.messageCleanupThreshold); // 保留最新的 N 条
+		console.log(`[cron] cleanup job: cleaned up ${messagesCleaned} old messages (retaining last ${cronConfig.messageCleanupThreshold}).`);
+		const imagesCleaned = await cleanupOldImages(env.DB, cronConfig.imageRetentionPeriodMs); // 清理 N 天前的图片
+		const retentionDays = cronConfig.imageRetentionPeriodMs / (24 * 60 * 60 * 1000);
+		// 将计算逻辑从模板字符串中提取出来，提高代码清晰度并解决潜在的 linter 问题。
+		console.log(`[cron] cleanup job: cleaned up ${imagesCleaned} old images (older than ${retentionDays} days).`);
+	} catch (e) {
+		console.error('[cron] error during cleanup job', e);
+	}
+	console.log('[cron] cleanup job finished.');
+}
+
 export default {
 	async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
 		console.log(`[cron] event start, cron: ${controller.cron}`);
@@ -35,13 +111,13 @@ export default {
 				const SUMMARY_HOURS = 24;
 				const SUMMARY_OVERLAP_MINUTES = 42;
 				const summary_period_minutes = SUMMARY_HOURS * 60 + SUMMARY_OVERLAP_MINUTES;
-				ctx.waitUntil(this.handleScheduledSummary(env, summary_period_minutes));
+				ctx.waitUntil(handleScheduledSummary(env, summary_period_minutes));
 				break;
 			}
 			// 每天上海时间 02:42 (UTC 18:42) 触发清理任务
 			case '42 18 * * *': {
 				console.log('[cron] cleanup job start');
-				ctx.waitUntil(this.handleScheduledCleanup(env));
+				ctx.waitUntil(handleScheduledCleanup(env));
 				break;
 			}
 			default: {
@@ -49,82 +125,6 @@ export default {
 				break;
 			}
 		}
-	},
-
-	async handleScheduledSummary(env: Env, summary_period_minutes: number) {
-		console.log('[cron] summary job: fetching active groups.');
-		const groups = await getActiveGroups(env.DB, cronConfig.dailySummaryMessageThreshold);
-		console.log(`[cron] summary job: found ${groups.length} active groups.`);
-
-		for (const group of groups) {
-			if (cronConfig.skipSummaryGroupIds.includes(group.groupId)) {
-				console.log(`[cron] skipping summary for group ${group.groupId} as per config.`);
-				continue;
-			}
-
-			console.log(`[cron] processing summary for group ${group.groupId}`);
-			const summary_period_hours = summary_period_minutes / 60.0;
-			const messages = await getMessagesByHours(env.DB, group.groupId, summary_period_hours);
-
-			if (messages.length === 0) {
-				console.log(`[cron] no messages found for group ${group.groupId} in the last ${summary_period_hours} hours.`);
-				continue;
-			}
-
-			try {
-				// <-- 使用新的 getSummary 函数
-				const summaryContent = await getSummary(env, messages);
-
-				if (!summaryContent) {
-					console.log(`[cron] summary generation returned empty content for group ${group.groupId}`);
-					continue;
-				}
-
-				const text = messageTemplate(
-					foldText(fixLink(processMarkdownLinks(telegramifyMarkdown(summaryContent, 'keep')))),
-					env.AI_MODEL_NAME || 'google-ai-studio/gemini-2.0-flash',
-				);
-
-				const message = `${escapeMarkdownV2('#summary')}
-
-					${text}`;
-
-				const res = await fetch(`https://api.telegram.org/bot${env.SECRET_TELEGRAM_API_TOKEN}/sendMessage`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						chat_id: group.groupId,
-						text: message,
-						parse_mode: 'MarkdownV2',
-					}),
-				});
-
-				if (!res.ok) {
-					console.error(`[cron] failed to send summary to group ${group.groupId}`, res.statusText, await res.text());
-				} else {
-					console.log(`[cron] summary sent to group ${group.groupId}`);
-				}
-			} catch (e) {
-				console.error(`[cron] error processing summary for group ${group.groupId}`, e);
-			}
-		}
-		console.log('[cron] summary job finished.');
-	},
-
-	async handleScheduledCleanup(env: Env) {
-		console.log('[cron] cleanup job: starting global cleanup.');
-		try {
-			// 清理函数可能会返回已删除项目的数量。
-			const messagesCleaned = await cleanupOldMessages(env.DB, cronConfig.messageCleanupThreshold); // 保留最新的 N 条
-			console.log(`[cron] cleanup job: cleaned up ${messagesCleaned} old messages (retaining last ${cronConfig.messageCleanupThreshold}).`);
-			const imagesCleaned = await cleanupOldImages(env.DB, cronConfig.imageRetentionPeriodMs); // 清理 N 天前的图片
-			const retentionDays = cronConfig.imageRetentionPeriodMs / (24 * 60 * 60 * 1000);
-			// 将计算逻辑从模板字符串中提取出来，提高代码清晰度并解决潜在的 linter 问题。
-			console.log(`[cron] cleanup job: cleaned up ${imagesCleaned} old images (older than ${retentionDays} days).`);
-		} catch (e) {
-			console.error('[cron] error during cleanup job', e);
-		}
-		console.log('[cron] cleanup job finished.');
 	},
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -143,6 +143,31 @@ export default {
 
 		bot.on('status', async (ctx) => {
 			await ctx.reply('我家还蛮大的');
+			return new Response('ok');
+		});
+
+		bot.on('test_summary', async (ctx) => {
+			const userId = ctx.update.message!.from!.id;
+
+			// 验证是否为管理员
+			if (userId.toString() !== env.TELEGRAM_ADMIN_ID) {
+				await ctx.reply('抱歉，此命令仅限管理员使用。');
+				return new Response('ok');
+			}
+
+			await ctx.reply('正在为您手动触发每日总结任务，请稍候...');
+
+			// 使用与 cron 任务相同的参数
+			const SUMMARY_HOURS = 24;
+			const SUMMARY_OVERLAP_MINUTES = 42;
+			const summary_period_minutes = SUMMARY_HOURS * 60 + SUMMARY_OVERLAP_MINUTES;
+
+			// 在后台执行，防止请求超时
+			_ctx.waitUntil(handleScheduledSummary(env, summary_period_minutes));
+
+			// 可以在这里添加一个完成后的通知，但 handleScheduledSummary 内部没有返回群组ID，
+			// 所以暂时只通知任务已启动。
+			console.log(`[manual_trigger] test_summary triggered by admin: ${userId}`);
 			return new Response('ok');
 		});
 

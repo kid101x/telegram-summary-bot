@@ -2,6 +2,7 @@
 
 interface Env {
 	SECRET_TELEGRAM_API_TOKEN: string;
+	TELEGRAM_ADMIN_ID: string;
 	GEMINI_API_KEY: string;
 	ACCOUNT_ID?: string;
 	AI_GATEWAY_ID?: string;
