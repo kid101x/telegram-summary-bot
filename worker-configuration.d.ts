@@ -2,12 +2,18 @@
 
 interface Env {
 	SECRET_TELEGRAM_API_TOKEN: string;
+	TELEGRAM_ADMIN_ID: string;
 	GEMINI_API_KEY: string;
-	GATEWAY_NAME: string;
-	account_id: string;
+	ACCOUNT_ID?: string;
+	AI_GATEWAY_ID?: string;
+	AI_API_KEY?: string;
+	AI_MODEL_NAME?: string;
+	FORCE_USE_AI_BASE_URL?: string;
 	DB: D1Database;
 	DB_ID?: string;
 	// 由 Cloudflare Pages 自动注入的 Git Commit SHA
 	// 用于 /version 命令
 	GIT_COMMIT_SHA: string;
+	// AI Gateway 或本地 LLM 的 URL
+	AI_BASE_URL: string;
 }

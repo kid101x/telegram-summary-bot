@@ -18,7 +18,9 @@ enabled = true
 mode = "smart"
 
 [triggers]
-crons = ["*/6 16 * * *"] # utc+8 0 0,1 * * *
+# 每天 UTC 15:23 (上海时间 23:23) 触发总结任务
+# 每天 UTC 18:42 (上海时间 02:42) 触发清理任务
+crons = ["23 15 * * *", "42 18 * * *"]
 
 # Variable bindings. These are arbitrary, plaintext strings (similar to environment variables)
 # Docs:
@@ -29,7 +31,7 @@ crons = ["*/6 16 * * *"] # utc+8 0 0,1 * * *
 # ... (d1_databases 和 triggers 部分保持不变) ...
 [[d1_databases]]
 binding = "DB"
-database_name = "baijiabot-t-db"
+database_name = "chat-msg-d1"
 database_id = "12345-abcde-12345"
 
 # ==================================
@@ -41,95 +43,26 @@ name = "telegram-summary-bot"
 
 [env.prod.vars]
 ENV = "prod"
+# AI_MODEL_NAME can be defined here or set as a secret for more flexibility.
+AI_MODEL_NAME = "google-ai-studio/gemini-2.0-flash"
+# Note: AI_BASE_URL is no longer needed here. The code will automatically construct it
+# from the secrets below, which is a more secure practice.
+
+# --- Secrets for Production ---
+# Use 'npx wrangler secret put <SECRET_NAME>' to set these:
+# - ACCOUNT_ID: Your Cloudflare Account ID.
+# - AI_GATEWAY_ID: Your Production AI Gateway ID.
+# - AI_API_KEY: Your AI provider's API key (e.g., for Gemini or OpenAI).
+# - SECRET_TELEGRAM_API_TOKEN: Your Telegram Bot Token.
+# - GIT_COMMIT_SHA: (Optional) Automatically set by CI/CD for the /version command.
 
 # Bind a D1 database. D1 is Cloudflare’s native serverless SQL database.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#d1-databases
 
 [[env.prod.d1_databases]]
 binding = "DB"
-database_name = "chat-msg-d1"
-database_id = "f76898f1-671d-4844-89e8-b460d73855b0" 
-
-# Bind the Workers AI model catalog. Run machine learning models, powered by serverless GPUs, on Cloudflare’s global network
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#workers-ai
-# [ai]
-# binding = "AI"
-
-# Bind an Analytics Engine dataset. Use Analytics Engine to write analytics within your Pages Function.
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#analytics-engine-datasets
-# [[analytics_engine_datasets]]
-# binding = "MY_DATASET"
-
-# Bind a headless browser instance running on Cloudflare's global network.
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#browser-rendering
-# [browser]
-# binding = "MY_BROWSER"
-
-# Bind a dispatch namespace. Use Workers for Platforms to deploy serverless functions programmatically on behalf of your customers.
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#dispatch-namespace-bindings-workers-for-platforms
-# [[dispatch_namespaces]]
-# binding = "MY_DISPATCHER"
-# namespace = "my-namespace"
-
-# Bind a Durable Object. Durable objects are a scale-to-zero compute primitive based on the actor model.
-# Durable Objects can live for as long as needed. Use these when you need a long-running "server", such as in realtime apps.
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#durable-objects
-# [[durable_objects.bindings]]
-# name = "MY_DURABLE_OBJECT"
-# class_name = "MyDurableObject"
-
-# Durable Object migrations.
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#migrations
-# [[migrations]]
-# tag = "v1"
-# new_classes = ["MyDurableObject"]
-
-# Bind a Hyperdrive configuration. Use to accelerate access to your existing databases from Cloudflare Workers.
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#hyperdrive
-# [[hyperdrive]]
-# binding = "MY_HYPERDRIVE"
-# id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-
-# Bind a KV Namespace. Use KV as persistent storage for small key-value pairs.
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#kv-namespaces
-# [[kv_namespaces]]
-# binding = "MY_KV_NAMESPACE"
-# id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-
-# Bind an mTLS certificate. Use to present a client certificate when communicating with another service.
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#mtls-certificates
-# [[mtls_certificates]]
-# binding = "MY_CERTIFICATE"
-# certificate_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-
-# Bind a Queue producer. Use this binding to schedule an arbitrary task that may be processed later by a Queue consumer.
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#queues
-# [[queues.producers]]
-# binding = "MY_QUEUE"
-# queue = "my-queue"
-
-# Bind a Queue consumer. Queue Consumers can retrieve tasks scheduled by Producers to act on them.
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#queues
-# [[queues.consumers]]
-# queue = "my-queue"
-
-# Bind an R2 Bucket. Use R2 to store arbitrarily large blobs of data, such as files.
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#r2-buckets
-# [[r2_buckets]]
-# binding = "MY_BUCKET"
-# bucket_name = "my-bucket"
-
-# Bind another Worker service. Use this binding to call another Worker without network overhead.
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
-# [[services]]
-# binding = "MY_SERVICE"
-# service = "my-service"
-
-# Bind a Vectorize index. Use to store and query vector embeddings for semantic search, classification and other vector search use-cases.
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#vectorize-indexes
-# [[vectorize]]
-# binding = "MY_INDEX"
-# index_name = "my-index"
+database_name = "baijia-bot-db"
+database_id = "804695f9-9af3-438a-b605-2050f4413094"
 
 # ==================================
 #  Dev-Test Environment
@@ -140,10 +73,39 @@ name = "telegram-summary-test"
 
 [env.dev-test.vars]
 ENV = "dev-test"
+AI_MODEL_NAME = "google-ai-studio/gemini-2.0-flash" # Model for testing
+# Secrets for dev-test are the same as production, but should point to test resources.
 
 # !!! IMPORTANT !!!
 # Replace the database_name and database_id with your actual dev-test database values.
 [[env.dev-test.d1_databases]]
+binding = "DB"
+database_name = "baijiabot-t-db"
+database_id = "4ea82938-ef09-42f0-a7d4-c0b30d304a29"
+
+# ==================================
+#  Local Development Environment
+# ==================================
+[env.local-demo]
+name = "telegram-summary-local"
+
+[env.local-demo.vars]
+ENV = "local-demo"
+# This flag explicitly enables the direct connection mode using AI_BASE_URL.
+FORCE_USE_AI_BASE_URL = "true"
+# --- Important Note on `wrangler dev` ---
+# Due to Telegram's Webhook requirements (requiring a public HTTPS URL),
+# `wrangler dev` cannot be used for end-to-end testing of this bot.
+# This environment is primarily for deploying to a test Worker that uses a
+# local or custom AI endpoint via a secure tunnel (e.g., cloudflared tunnel).
+#
+# For local development, it is recommended to define AI_BASE_URL and AI_MODEL_NAME
+# in a separate `.dev.vars.local-demo` file. See DEPLOYMENT_GUIDE.md for details.
+AI_BASE_URL = "http://localhost:11434/v1"
+AI_MODEL_NAME = "llama3"
+
+# You can use the same test database for local demo, or define a new one.
+[[env.local-demo.d1_databases]]
 binding = "DB"
 database_name = "baijiabot-t-db"
 database_id = "4ea82938-ef09-42f0-a7d4-c0b30d304a29"

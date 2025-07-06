@@ -1,7 +1,6 @@
 // src/utils/telegram.ts
 
 import type { TelegramMessage } from '@codebam/cf-workers-telegram-bot';
-import { aiConfig, botConfig } from '../config';
 import { escapeMarkdownV2 } from './markdown';
 
 /**
@@ -52,6 +51,6 @@ export function getCommandVar(str: string, delim: string): string {
  * 机器人回复的消息模板。
  * @param s 核心内容
  */
-export function messageTemplate(s: string): string {
-	return `下面由财大气粗的 ${escapeMarkdownV2(aiConfig.model)} 概括群聊信息\n` + s;
+export function messageTemplate(s: string, modelName: string): string {
+	return `下面由财大气粗的 ${escapeMarkdownV2(modelName)} 概括群聊信息\n` + s;
 }

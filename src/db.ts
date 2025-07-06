@@ -1,6 +1,8 @@
 // src/db.ts
 
-import type { MessageRecord } from './types'; // 我们将把类型定义也移出来
+const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+import type { MessageRecord } from './types';
 import { getMessageLink } from './utils/telegram';
 
 /**
@@ -102,7 +104,7 @@ export async function searchMessages(db: D1Database, groupId: number, searchTerm
  * @param threshold 消息数阈值
  */
 export async function getActiveGroups(db: D1Database, threshold: number): Promise<{ groupId: number; message_count: number }[]> {
-	const twentyFourHoursAgo = Date.now() - 24 * 3600 * 1000;
+	const twentyFourHoursAgo = Date.now() - ONE_DAY_IN_MS;
 	const { results } = await db
 		.prepare(
 			`
@@ -129,10 +131,11 @@ export async function getActiveGroups(db: D1Database, threshold: number): Promis
  * 清理每个群组中超过数量阈值的旧消息。
  * @param db D1Database 实例
  * @param threshold 消息保留数量上限
+ * @returns 返回被删除的消息数量
  */
-export async function cleanupOldMessages(db: D1Database, threshold: number): Promise<void> {
+export async function cleanupOldMessages(db: D1Database, threshold: number): Promise<number> {
 	try {
-		await db
+		const { meta } = await db
 			.prepare(
 				`
             DELETE FROM Messages
@@ -152,9 +155,11 @@ export async function cleanupOldMessages(db: D1Database, threshold: number): Pro
 			)
 			.bind(threshold)
 			.run();
-		console.log('Successfully cleaned up old messages.');
+		console.log(`Successfully cleaned up ${meta.changes} old messages.`);
+		return meta.changes;
 	} catch (e) {
 		console.error('Failed to clean up old messages:', e);
+		return 0;
 	}
 }
 
@@ -162,12 +167,13 @@ export async function cleanupOldMessages(db: D1Database, threshold: number): Pro
  * 清理超过保留期限的旧图片消息。
  * @param db D1Database 实例
  * @param retentionPeriodMs 图片保留毫秒数
+ * @returns 返回被删除的图片数量
  */
-export async function cleanupOldImages(db: D1Database, retentionPeriodMs: number): Promise<void> {
+export async function cleanupOldImages(db: D1Database, retentionPeriodMs: number): Promise<number> {
 	// 定义2天的毫秒数，更具可读性
 	const cutoffTimestamp = Date.now() - retentionPeriodMs;
 	try {
-		await db
+		const { meta } = await db
 			.prepare(
 				`
             DELETE
@@ -176,8 +182,10 @@ export async function cleanupOldImages(db: D1Database, retentionPeriodMs: number
 			)
 			.bind(cutoffTimestamp) // 使用计算好的时间戳
 			.run();
-		console.log('Successfully cleaned up old images.');
+		console.log(`Successfully cleaned up ${meta.changes} old images.`);
+		return meta.changes;
 	} catch (e) {
 		console.error('Failed to clean up old images:', e);
+		return 0;
 	}
 }
