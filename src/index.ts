@@ -80,7 +80,7 @@ export default {
 
 				const text = messageTemplate(
 					foldText(fixLink(processMarkdownLinks(telegramifyMarkdown(summaryContent, 'keep')))),
-					env.AI_MODEL_NAME || 'gemini-pro',
+					env.AI_MODEL_NAME || 'gemini-2.0-flash',
 				);
 
 				const message = `${escapeMarkdownV2('#summary')}
@@ -239,7 +239,7 @@ export default {
 					await ctx.reply(
 						messageTemplate(
 							foldText(fixLink(processMarkdownLinks(telegramifyMarkdown(summaryContent, 'keep')))),
-							env.AI_MODEL_NAME || 'gemini-pro',
+							env.AI_MODEL_NAME || 'gemini-2.0-flash',
 						),
 						'MarkdownV2',
 					);

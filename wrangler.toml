@@ -44,7 +44,7 @@ name = "telegram-summary-bot"
 [env.prod.vars]
 ENV = "prod"
 # AI_MODEL_NAME can be defined here or set as a secret for more flexibility.
-AI_MODEL_NAME = "google/gemini-pro"
+AI_MODEL_NAME = "google/gemini-2.0-flash"
 # Note: AI_BASE_URL is no longer needed here. The code will automatically construct it
 # from the secrets below, which is a more secure practice.
 
@@ -73,7 +73,7 @@ name = "telegram-summary-test"
 
 [env.dev-test.vars]
 ENV = "dev-test"
-AI_MODEL_NAME = "google/gemini-pro" # Model for testing
+AI_MODEL_NAME = "google/gemini-2.0-flash" # Model for testing
 # Secrets for dev-test are the same as production, but should point to test resources.
 
 # !!! IMPORTANT !!!

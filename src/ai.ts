@@ -45,7 +45,7 @@ function createOpenAIClient(env: Env): OpenAI {
 	// 3. 如果两种模式都未配置，则抛出清晰的错误
 	else {
 		throw new Error(
-			"AI provider is not configured. Please provide EITHER [ACCOUNT_ID and AI_GATEWAY_ID secrets] OR [set FORCE_USE_AI_BASE_URL='true' and define the AI_BASE_URL variable]."
+			"AI provider is not configured. Please provide EITHER [ACCOUNT_ID and AI_GATEWAY_ID secrets] OR [set FORCE_USE_AI_BASE_URL='true' and define the AI_BASE_URL variable].",
 		);
 	}
 
@@ -58,7 +58,6 @@ function createOpenAIClient(env: Env): OpenAI {
 		},
 	});
 }
-
 
 /**
  * 获取 AI 模型的响应
@@ -75,33 +74,34 @@ async function getAIResponse(
 	question?: string,
 ): Promise<string> {
 	const ai = createOpenAIClient(env);
-	const model = env.AI_MODEL_NAME || 'google/gemini-pro';
+	const model = env.AI_MODEL_NAME || 'google/gemini-2.0-flash';
 
 	const systemPrompt = SYSTEM_PROMPTS[promptType];
-	const contentParts: (OpenAI.Chat.Completions.ChatCompletionContentPartText | OpenAI.Chat.Completions.ChatCompletionContentPartImage)[] = [];
-    const textParts: string[] = [];
+	const contentParts: (OpenAI.Chat.Completions.ChatCompletionContentPartText | OpenAI.Chat.Completions.ChatCompletionContentPartImage)[] =
+		[];
+	const textParts: string[] = [];
 
-    messages.forEach((r: MessageRecord) => {
-        const dispatched = dispatchContent(r.content);
-        if (dispatched.type === 'image_url') {
-            contentParts.push(dispatched);
-            textParts.push(`${r.userName}: [发了一张图片] ${getMessageLink(r)}`);
-        } else {
-            textParts.push(`${r.userName}:\n${r.content}\n${getMessageLink(r)}`);
-        }
-    });
+	messages.forEach((r: MessageRecord) => {
+		const dispatched = dispatchContent(r.content);
+		if (dispatched.type === 'image_url') {
+			contentParts.push(dispatched);
+			textParts.push(`${r.userName}: [发了一张图片] ${getMessageLink(r)}`);
+		} else {
+			textParts.push(`${r.userName}:\n${r.content}\n${getMessageLink(r)}`);
+		}
+	});
 
-    const combinedText = textParts.join(`\n${PROMPT_FORMATTING.messageSeparator}\n`);
-    contentParts.unshift({ type: 'text', text: combinedText });
+	const combinedText = textParts.join(`\n${PROMPT_FORMATTING.messageSeparator}\n`);
+	contentParts.unshift({ type: 'text', text: combinedText });
 
-    if (question) {
-        const lastTextPart = contentParts.find(part => part.type === 'text');
-        if (lastTextPart && lastTextPart.type === 'text') {
-            lastTextPart.text += `\n\n问题：${question}`;
-        } else {
-            contentParts.push({ type: 'text', text: `问题：${question}` });
-        }
-    }
+	if (question) {
+		const lastTextPart = contentParts.find((part) => part.type === 'text');
+		if (lastTextPart && lastTextPart.type === 'text') {
+			lastTextPart.text += `\n\n问题：${question}`;
+		} else {
+			contentParts.push({ type: 'text', text: `问题：${question}` });
+		}
+	}
 
 	try {
 		const result = await ai.chat.completions.create({
