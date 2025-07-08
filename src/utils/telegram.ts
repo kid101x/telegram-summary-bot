@@ -8,13 +8,21 @@ import { escapeMarkdownV2 } from './markdown';
  * @param r 包含 groupId 和 messageId 的对象
  */
 export function getMessageLink(r: { groupId: number; messageId: number }): string {
-	// 1. groupId 已经是 number，无需转换
-	const groupIdStr = r.groupId.toString();
-	// 2. 根据群组类型处理 ID。
-	// 超级群组的 ID 以 '-100' 开头，链接中需要移除此部分。
-	// 其他群组（如果可链接）则使用其 ID 的绝对值。
-	const processedId = groupIdStr.startsWith('-100') ? groupIdStr.slice(4) : Math.abs(r.groupId).toString();
-	return `https://t.me/c/${processedId}/${r.messageId}`;
+	// 步骤 1: 数据库中 groupId 可能为浮点数 (例如 -1002803482189.0)，需要先取整。
+	const groupIdInt = Math.trunc(r.groupId);
+
+	// 步骤 2: 将整数 groupId 转换为字符串，以进行后续处理。
+	const groupIdStr = groupIdInt.toString();
+
+	// 步骤 3: 处理 Telegram 的群组ID规则。
+	// - 对于超级群组，其 ID 格式为 "-100xxxxxxxxxx"，在生成链接时需要移除 "-100" 前缀。
+	// - 对于普通群组或频道，其 ID 为负数，链接中需要使用其绝对值。
+	const formattedGroupId = groupIdStr.startsWith('-100')
+		? groupIdStr.substring(4) // 移除前4个字符 "-100"
+		: Math.abs(groupIdInt).toString(); // 取绝对值
+
+	// 步骤 4: 使用格式化后的群组ID组合成最终的 Telegram 消息链接。
+	return `https://t.me/c/${formattedGroupId}/${r.messageId}`;
 }
 
 /**
