@@ -70,3 +70,8 @@ export const botConfig = {
 export const PROMPT_FORMATTING = {
 	messageSeparator: '---',
 };
+
+// 获取当前运行环境
+export function getRuntimeEnvironment(env: { ENV?: string }): 'prod' | 'dev-test' | 'local-demo' {
+	return env.ENV === 'dev-test' || env.ENV === 'local-demo' ? env.ENV : 'prod';
+}
