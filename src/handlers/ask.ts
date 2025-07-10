@@ -25,7 +25,6 @@ export async function handleAskCommand(ctx: BotContext, env: Env) {
 	});
 	if (!res.ok) {
 		await ctx.reply('请先私聊我并点击 "Start"，否则无法向您发送回答。');
-		return new Response('ok');
 	}
 
 	const messages = await getMessagesByCount(env.DB, groupId, 1000);
