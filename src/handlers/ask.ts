@@ -8,7 +8,6 @@ import telegramifyMarkdown from 'telegramify-markdown';
 export async function handleAskCommand(ctx: BotContext, env: Env) {
 	const groupId = ctx.update.message!.chat.id;
 	const userId = ctx.update.message!.from!.id;
-	const messageId = ctx.update.message!.message_id;
 	const messageText = ctx.update.message!.text || '';
 	const question = getCommandVar(messageText, ' ');
 
@@ -20,11 +19,12 @@ export async function handleAskCommand(ctx: BotContext, env: Env) {
 	let res = await ctx.api.sendMessage(ctx.bot.api.toString(), {
 		chat_id: userId,
 		text: 'bot 已经收到你的问题, 正在思考中...',
-		reply_to_message_id: messageId,
 		parse_mode: '',
+		reply_to_message_id: -1,
 	});
 	if (!res.ok) {
 		await ctx.reply('请先私聊我并点击 "Start"，否则无法向您发送回答。');
+		return new Response('ok');
 	}
 
 	const messages = await getMessagesByCount(env.DB, groupId, 1000);
@@ -37,7 +37,7 @@ export async function handleAskCommand(ctx: BotContext, env: Env) {
 			chat_id: userId,
 			text: foldText(response_text),
 			parse_mode: 'MarkdownV2',
-			reply_to_message_id: messageId,
+			reply_to_message_id: -1,
 		});
 		if (!res.ok) {
 			console.error('Failed to send answer:', await res.text());
@@ -47,8 +47,8 @@ export async function handleAskCommand(ctx: BotContext, env: Env) {
 		await ctx.api.sendMessage(ctx.bot.api.toString(), {
 			chat_id: userId,
 			text: `抱歉，思考时遇到了一些问题，无法回答: ${e instanceof Error ? e.message : 'Unknown error'}`,
-			reply_to_message_id: messageId,
 			parse_mode: '',
+			reply_to_message_id: -1,
 		});
 	}
 
