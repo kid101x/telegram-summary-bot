@@ -39,7 +39,7 @@ export async function handleScheduledSummary(env: Env, summary_period_minutes: n
 				env.AI_MODEL_NAME || 'google-ai-studio/gemini-2.0-flash',
 			);
 
-			const message = `${escapeMarkdownV2('#summary')}\n\n\t${text}`;
+			const message = `${escapeMarkdownV2('#summary')}\n\n${text}`;
 
 			const res = await fetch(`https://api.telegram.org/bot${env.SECRET_TELEGRAM_API_TOKEN}/sendMessage`, {
 				method: 'POST',
