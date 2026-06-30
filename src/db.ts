@@ -102,8 +102,13 @@ export async function searchMessages(db: D1Database, groupId: number, searchTerm
  * 获取所有在过去24小时内消息数超过阈值的活跃群组。
  * @param db D1Database 实例
  * @param threshold 消息数阈值
+ * @param limit 最多返回的群组数（按消息数降序，防止配额被打满）
  */
-export async function getActiveGroups(db: D1Database, threshold: number): Promise<{ groupId: number; message_count: number }[]> {
+export async function getActiveGroups(
+	db: D1Database,
+	threshold: number,
+	limit = 20,
+): Promise<{ groupId: number; message_count: number }[]> {
 	const twentyFourHoursAgo = Date.now() - ONE_DAY_IN_MS;
 	const { results } = await db
 		.prepare(
@@ -119,10 +124,11 @@ export async function getActiveGroups(db: D1Database, threshold: number): Promis
         SELECT groupId, message_count
         FROM MessageCounts
         WHERE message_count > ?2
-        ORDER BY message_count DESC;
+        ORDER BY message_count DESC
+        LIMIT ?3;
         `,
 		)
-		.bind(twentyFourHoursAgo, threshold)
+		.bind(twentyFourHoursAgo, threshold, limit)
 		.all<{ groupId: number; message_count: number }>();
 	return results || [];
 }

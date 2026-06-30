@@ -8,7 +8,7 @@ import telegramifyMarkdown from 'telegramify-markdown';
 
 export async function handleScheduledSummary(env: Env, summary_period_minutes: number) {
 	console.log('[cron] summary job: fetching active groups.');
-	const groups = await getActiveGroups(env.DB, cronConfig.dailySummaryMessageThreshold);
+	const groups = await getActiveGroups(env.DB, cronConfig.dailySummaryMessageThreshold, cronConfig.maxSummaryGroupsPerRun);
 	console.log(`[cron] summary job: found ${groups.length} active groups.`);
 
 	for (const group of groups) {
@@ -39,7 +39,7 @@ export async function handleScheduledSummary(env: Env, summary_period_minutes: n
 				env.AI_MODEL_NAME || 'google-ai-studio/gemini-2.0-flash',
 			);
 
-			const message = `${escapeMarkdownV2('#summary')}\n\n\t${text}`;
+			const message = `${escapeMarkdownV2('#summary')}\n\n${text}`;
 
 			const res = await fetch(`https://api.telegram.org/bot${env.SECRET_TELEGRAM_API_TOKEN}/sendMessage`, {
 				method: 'POST',

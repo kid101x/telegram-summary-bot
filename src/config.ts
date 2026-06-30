@@ -2,7 +2,7 @@
  * 用于存放不希望机器人响应和记录的关键词。
  * 如果收到的消息以这个列表中的任何一个词开头，机器人将直接忽略该消息。
  */
-export const IGNORED_KEYWORDS: string[] = ['签到', '打卡', '查找'];
+export const IGNORED_KEYWORDS: string[] = ['签到', '打卡', '导航', '滴滴', '抽奖'];
 /*
  * 计划将常量、变量都转移过来，集中管理
  */
@@ -56,6 +56,8 @@ export const cronConfig = {
 	imageRetentionPeriodMs: 2 * 24 * 60 * 60 * 1000, // 2天
 	// 需要跳过发送总结的群组ID列表
 	skipSummaryGroupIds: [-1001687785734],
+	// 每次定时总结最多处理的群组数（按消息数降序取前 N，防止 Gemini flash 配额被打满）
+	maxSummaryGroupsPerRun: 20,
 };
 
 // 机器人通用配置
