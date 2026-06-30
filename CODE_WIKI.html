@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Code Wiki — telegram-summary-bot</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --bg-soft: #161b22;
+    --bg-card: #1c2128;
+    --bg-code: #0d1117;
+    --border: #30363d;
+    --border-soft: #21262d;
+    --text: #e6edf3;
+    --text-soft: #9da7b3;
+    --text-dim: #6e7681;
+    --accent: #58a6ff;
+    --accent-soft: #1f6feb;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --orange: #ffa657;
+    --sidebar-w: 280px;
+    --max-content: 980px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Top Bar ---------- */
+  .topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 60px;
+    background: rgba(15, 20, 25, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    z-index: 100;
+  }
+  .topbar .brand {
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .topbar .brand .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    box-shadow: 0 0 12px var(--accent);
+  }
+  .topbar .brand .sub { color: var(--text-dim); font-weight: 400; font-size: 13px; }
+  .topbar .spacer { flex: 1; }
+  .topbar .meta {
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 16px;
+  }
+  .topbar .meta code {
+    background: var(--bg-card);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--accent);
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  .nav-toggle {
+    display: none;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 36px; height: 36px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    margin-right: 12px;
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-w);
+    background: var(--bg-soft);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 24px 16px 60px;
+  }
+  .sidebar::-webkit-scrollbar { width: 8px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .sidebar .nav-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-dim);
+    margin: 16px 12px 8px;
+    font-weight: 600;
+  }
+  .sidebar nav a {
+    display: block;
+    padding: 7px 12px;
+    color: var(--text-soft);
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 13.5px;
+    border-left: 2px solid transparent;
+    transition: all .15s ease;
+  }
+  .sidebar nav a:hover {
+    color: var(--text);
+    background: var(--bg-card);
+  }
+  .sidebar nav a.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: rgba(88, 166, 255, 0.08);
+    font-weight: 500;
+  }
+  .sidebar nav a.sub {
+    padding-left: 28px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+
+  /* ---------- Main ---------- */
+  .main {
+    margin-left: var(--sidebar-w);
+    margin-top: 60px;
+    padding: 40px 48px 120px;
+    max-width: var(--max-content);
+  }
+
+  .hero {
+    background: linear-gradient(135deg, rgba(31, 111, 235, 0.12), rgba(188, 140, 255, 0.08));
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px 36px;
+    margin-bottom: 40px;
+  }
+  .hero h1 {
+    margin: 0 0 8px;
+    font-size: 30px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .hero p {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 15px;
+  }
+  .hero .badges {
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-soft);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+  }
+  .badge.green { color: var(--green); border-color: rgba(63, 185, 80, 0.4); }
+  .badge.blue  { color: var(--accent); border-color: rgba(88, 166, 255, 0.4); }
+  .badge.purple { color: var(--purple); border-color: rgba(188, 140, 255, 0.4); }
+  .badge.yellow { color: var(--yellow); border-color: rgba(210, 153, 34, 0.4); }
+
+  /* ---------- Section ---------- */
+  section {
+    margin-bottom: 56px;
+    scroll-margin-top: 80px;
+  }
+  h2 {
+    font-size: 24px;
+    margin: 0 0 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  h2 .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent-soft), var(--accent));
+    color: #fff;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  h3 {
+    font-size: 18px;
+    margin: 28px 0 12px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h3::before {
+    content: "";
+    width: 4px; height: 18px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  h4 {
+    font-size: 15px;
+    margin: 20px 0 10px;
+    color: var(--purple);
+  }
+  p { margin: 10px 0; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  ul, ol { padding-left: 22px; }
+  li { margin: 6px 0; }
+
+  strong { color: var(--text); font-weight: 600; }
+  em { color: var(--orange); font-style: normal; }
+
+  /* ---------- Code ---------- */
+  code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.88em;
+    background: var(--bg-card);
+    color: var(--orange);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border-soft);
+  }
+  pre {
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    margin: 16px 0;
+    position: relative;
+  }
+  pre code {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  pre .c { color: var(--text-dim); font-style: italic; } /* comment */
+  pre .k { color: var(--purple); } /* keyword */
+  pre .s { color: var(--green); } /* string */
+  pre .n { color: var(--orange); } /* number */
+  pre .f { color: var(--accent); } /* function */
+  pre .p { color: var(--yellow); } /* property/punct */
+
+  /* ---------- Table ---------- */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 16px 0;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13.5px;
+  }
+  th, td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-soft);
+    vertical-align: top;
+  }
+  th {
+    background: var(--bg-card);
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 12.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(88, 166, 255, 0.04); }
+
+  /* ---------- Callouts ---------- */
+  .callout {
+    border-left: 3px solid;
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    background: var(--bg-card);
+  }
+  .callout.info { border-color: var(--accent); }
+  .callout.warn { border-color: var(--yellow); }
+  .callout.danger { border-color: var(--red); }
+  .callout.tip { border-color: var(--green); }
+  .callout .title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .callout.info .title { color: var(--accent); }
+  .callout.warn .title { color: var(--yellow); }
+  .callout.danger .title { color: var(--red); }
+  .callout.tip .title { color: var(--green); }
+
+  /* ---------- Cards ---------- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin: 16px 0;
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    transition: transform .15s, border-color .15s;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+  }
+  .card .head {
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 6px;
+    font-size: 14px;
+  }
+  .card .desc {
+    color: var(--text-soft);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .pros-cons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .pros-cons .col {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    background: var(--bg-card);
+  }
+  .pros-cons .col.pros { border-top: 3px solid var(--green); }
+  .pros-cons .col.cons { border-top: 3px solid var(--red); }
+  .pros-cons h4 {
+    margin: 0 0 10px;
+    color: var(--text);
+    font-size: 14px;
+  }
+  .pros-cons .col.pros h4 { color: var(--green); }
+  .pros-cons .col.cons h4 { color: var(--red); }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 32px 0;
+  }
+
+  /* ---------- Back to top ---------- */
+  .to-top {
+    position: fixed;
+    bottom: 32px; right: 32px;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    z-index: 90;
+  }
+  .to-top.show { opacity: 1; pointer-events: auto; }
+  .to-top:hover { transform: translateY(-3px); }
+
+  /* ---------- Footer ---------- */
+  .footer {
+    margin-top: 60px;
+    padding: 24px 0;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 12.5px;
+    text-align: center;
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 1024px) {
+    .pros-cons { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    :root { --sidebar-w: 0px; }
+    .nav-toggle { display: inline-flex; align-items: center; justify-content: center; }
+    .sidebar {
+      transform: translateX(-100%);
+      transition: transform .25s ease;
+      width: 260px;
+      z-index: 95;
+    }
+    .sidebar.open { transform: translateX(0); }
+    .main { margin-left: 0; padding: 24px 20px 100px; }
+    .topbar .meta { display: none; }
+    .hero { padding: 24px 20px; }
+    .hero h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ Top Bar ============ -->
+<header class="topbar">
+  <button class="nav-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="brand">
+    <span class="dot"></span>
+    Code Wiki
+    <span class="sub">/ telegram-summary-bot</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="meta">
+    <span>分支 <code>dev</code></span>
+    <span>提交 <code>b7d87b9</code></span>
+  </div>
+</header>
+
+<!-- ============ Sidebar ============ -->
+<aside class="sidebar" id="sidebar">
+  <div class="nav-title">导航</div>
+  <nav id="nav">
+    <a href="#sec-1">1. 项目概述</a>
+    <a href="#sec-2">2. 整体架构</a>
+    <a href="#sec-3">3. 目录结构</a>
+    <a href="#sec-4">4. 主要模块职责</a>
+    <a href="#sec-4-1" class="sub">4.1 入口层</a>
+    <a href="#sec-4-2" class="sub">4.2 配置层</a>
+    <a href="#sec-4-3" class="sub">4.3 数据访问层</a>
+    <a href="#sec-4-4" class="sub">4.4 AI 层</a>
+    <a href="#sec-4-5" class="sub">4.5 Handler 层</a>
+    <a href="#sec-4-6" class="sub">4.6 定时任务层</a>
+    <a href="#sec-4-7" class="sub">4.7 工具层</a>
+    <a href="#sec-4-8" class="sub">4.8 类型层</a>
+    <a href="#sec-4-9" class="sub">4.9 数据库结构</a>
+    <a href="#sec-5">5. 关键类与函数</a>
+    <a href="#sec-6">6. 依赖关系</a>
+    <a href="#sec-7">7. 项目运行方式</a>
+    <a href="#sec-8">8. 分支策略与上游关系</a>
+    <a href="#sec-9">9. 利弊分析</a>
+  </nav>
+</aside>
+
+<!-- ============ Main ============ -->
+<main class="main">
+
+  <div class="hero">
+    <h1>Code Wiki — telegram-summary-bot</h1>
+    <p>一份对 <code>telegram-summary-bot</code> 仓库的结构化代码文档，涵盖整体架构、模块职责、关键类与函数、依赖关系、运行方式，以及分支 / 上游仓库关系与该形式的利弊分析。</p>
+    <div class="badges">
+      <span class="badge blue">TypeScript</span>
+      <span class="badge purple">Cloudflare Workers</span>
+      <span class="badge green">D1</span>
+      <span class="badge yellow">AI Gateway</span>
+      <span class="badge">Gemini Flash</span>
+    </div>
+  </div>
+
+  <!-- ============ 1. 项目概述 ============ -->
+  <section id="sec-1">
+    <h2><span class="num">1</span>项目概述</h2>
+    <p><code>telegram-summary-bot</code> 是一个部署在 <strong>Cloudflare Workers</strong> 上的 Telegram 群聊机器人。它把群聊消息持久化到 <strong>Cloudflare D1</strong>（Serverless SQLite）中，再通过 <strong>LLM</strong>（默认 Google AI Studio 的 <code>gemini-2.0-flash</code> / <code>gemini-2.5-flash</code>，经 Cloudflare AI Gateway 走 OpenAI 兼容协议）为用户完成：</p>
+    <div class="grid">
+      <div class="card"><div class="head">群聊总结</div><div class="desc">按条数或时间范围总结消息</div></div>
+      <div class="card"><div class="head">关键词检索</div><div class="desc">支持 CJK，使用 SQLite GLOB</div></div>
+      <div class="card"><div class="head">智能问答</div><div class="desc">基于群聊上下文回答问题</div></div>
+      <div class="card"><div class="head">定时任务</div><div class="desc">每日自动总结 + 清理过期数据</div></div>
+      <div class="card"><div class="head">图片摘要</div><div class="desc">JPEG 以 base64 喂多模态模型</div></div>
+      <div class="card"><div class="head">OG 提取</div><div class="desc">URL 链接的 OpenGraph 元信息</div></div>
+    </div>
+    <p>技术栈：TypeScript + Cloudflare Workers + D1 + AI Gateway + <code>@codebam/cf-workers-telegram-bot</code>（Telegram Bot 框架）+ OpenAI SDK（兼容调用）。</p>
+    <div class="callout tip">
+      <div class="title">成本几乎为 0</div>
+      D1 免费额度 + Workers 免费额度 + Gemini Flash 免费额度。
+    </div>
+  </section>
+
+  <!-- ============ 2. 整体架构 ============ -->
+  <section id="sec-2">
+    <h2><span class="num">2</span>整体架构</h2>
+    <pre><code><span class="c">                         ┌──────────────────────────────────────┐
+                         │           Cloudflare Worker          │
+                         │     (src/index.ts 默认导出对象)        │
+                         └──────────────────────────────────────┘
+            fetch(HTTP Webhook)                    scheduled(Cron Trigger)
+                       │                                     │
+                       ▼                                     ▼
+        ┌──────────────────────────┐         ┌────────────────────────────┐
+        │  new TelegramBot(token)  │         │  handleScheduledSummary    │
+        │  bot.on(...) 注册 handler │         │  handleScheduledCleanup    │
+        │  bot.handle(request)     │         │  (src/cron.ts)             │
+        └──────────────────────────┘         └────────────────────────────┘
+                       │                                     │
+                       ▼                                     │
+   ┌──────────────── handlers/ ───────────────────┐          │
+   │ version status test_summary query ask summary │          │
+   │            message (新消息/编辑/图片)            │          │
+   └───────────────────────────────────────────────┘          │
+                       │                                       │
+        ┌──────────────┼─────────────────────────┐             │
+        ▼              ▼                          ▼             ▼
+   ┌─────────┐   ┌──────────┐              ┌──────────────────────┐
+   │  ai.ts  │   │  db.ts   │              │   db.ts (cleanup)    │
+   │ LLM 调用 │   │ D1 读写  │              │ cleanupOldMessages   │
+   └────┬────┘   └────┬─────┘              │ cleanupOldImages     │
+        │             │                    └──────────────────────┘
+        ▼             ▼
+   ┌──────────────────────┐        ┌─────────────────────┐
+   │ Cloudflare AI Gateway│        │  Cloudflare D1      │
+   │  (OpenAI 兼容接口)     │        │  Messages 表        │
+   └──────────┬───────────┘        └─────────────────────┘
+              ▼
+   ┌──────────────────────┐
+   │ Gemini / 其他 LLM     │
+   └──────────────────────┘
+
+            ┌──────────────────────────────────┐
+            │  Telegram Bot API (sendMessage)   │
+            │  由 handlers & cron 直接 fetch 调用 │
+            └──────────────────────────────────┘</span></code></pre>
+
+    <h4>核心运行模型</h4>
+    <ul>
+      <li><strong>入口</strong>：<code>src/index.ts</code> 默认导出一个含 <code>scheduled</code> 和 <code>fetch</code> 方法的对象，这是 Cloudflare Workers 的 ES Module 标准入口。</li>
+      <li><strong>HTTP 入口（<code>fetch</code>）</strong>：Telegram 把 webhook update POST 到 Worker。Worker 实例化 <code>TelegramBot</code>，把不同的 <code>update_type</code> / 命令路由到 <code>src/handlers/*</code>。</li>
+      <li><strong>定时入口（<code>scheduled</code>）</strong>：由 <code>wrangler.toml</code> 中的 <code>triggers.crons</code> 触发，分别执行每日总结与每日清理。</li>
+      <li><strong>存储层</strong>：所有消息都进 D1 的 <code>Messages</code> 表；图片以 <code>data:image/jpeg;base64,...</code> 形式直接存进 <code>content</code> 字段。</li>
+      <li><strong>AI 层</strong>：<code>src/ai.ts</code> 用 OpenAI SDK 走 Cloudflare AI Gateway 的 <code>/compat</code> 端点；本地开发可强制回退到自定义 <code>AI_BASE_URL</code>（如本地 ollama 的 <code>http://localhost:11434/v1</code>）。</li>
+    </ul>
+  </section>
+
+  <!-- ============ 3. 目录结构 ============ -->
+  <section id="sec-3">
+    <h2><span class="num">3</span>目录结构</h2>
+    <pre><code>.
+├── .github/
+│   ├── workflows/format.yml        <span class="c"># CI：master 分支 push/PR 时跑 tsc --noEmit</span>
+│   └── FUNDING.yml
+├── .vscode/settings.json
+├── src/
+│   ├── handlers/                   <span class="c"># 命令与事件处理（路由层）</span>
+│   │   ├── index.ts                <span class="c"># 统一 re-export</span>
+│   │   ├── version.ts              <span class="c"># /version</span>
+│   │   ├── status.ts               <span class="c"># /status</span>
+│   │   ├── test_summary.ts         <span class="c"># /test_summary（仅管理员，手动触发每日总结）</span>
+│   │   ├── query.ts                <span class="c"># /query 关键词搜索</span>
+│   │   ├── ask.ts                  <span class="c"># /ask 基于群聊回答问题（私聊回复）</span>
+│   │   ├── summary.ts              <span class="c"># /summary 摘要</span>
+│   │   └── message.ts              <span class="c"># 普通消息 / 编辑消息 / 图片消息入库</span>
+│   ├── utils/
+│   │   ├── telegram.ts             <span class="c"># 消息链接生成、用户名提取、回复模板</span>
+│   │   ├── markdown.ts             <span class="c"># MarkdownV2 转义、链接折叠、上标、可折叠块</span>
+│   │   ├── og.ts                   <span class="c"># HTMLRewriter 提取 OG / meta 元信息</span>
+│   │   └── isJpeg.ts               <span class="c"># 通过 SOI/EOI 标记校验 JPEG base64</span>
+│   ├── ai.ts                       <span class="c"># OpenAI SDK 客户端 + getSummary / answerQuestion</span>
+│   ├── config.ts                   <span class="c"># 全部静态常量与系统 prompt 集中管理</span>
+│   ├── cron.ts                     <span class="c"># 定时任务：每日总结 / 清理</span>
+│   ├── db.ts                       <span class="c"># D1 数据访问层</span>
+│   ├── index.ts                    <span class="c"># Worker 入口（fetch + scheduled）</span>
+│   └── types.ts                    <span class="c"># Env / BotContext / MessageRecord 类型</span>
+├── test/
+│   ├── index.spec.ts               <span class="c"># vitest 单测（processMarkdownLinks / toSuperscript）</span>
+│   └── tsconfig.json
+├── schema.sql                      <span class="c"># D1 表结构（Messages + 索引）</span>
+├── wrangler.toml                   <span class="c"># CF Workers 配置：环境、D1、cron</span>
+├── worker-configuration.d.ts       <span class="c"># wrangler types 生成的 Env 类型</span>
+├── package.json
+├── tsconfig.json
+└── README.md</code></pre>
+  </section>
+
+  <!-- ============ 4. 主要模块职责 ============ -->
+  <section id="sec-4">
+    <h2><span class="num">4</span>主要模块职责</h2>
+
+    <h3 id="sec-4-1">4.1 入口层 — <code>src/index.ts</code></h3>
+    <p>Worker 的总入口，负责：</p>
+    <ol>
+      <li>在 <code>scheduled</code> 中根据 <code>controller.cron</code> 字符串分发到 <code>handleScheduledSummary</code> / <code>handleScheduledCleanup</code>。</li>
+      <li>在 <code>fetch</code> 中创建 <code>TelegramBot</code> 实例，注册各命令与 <code>:message</code> / <code>:edited_message</code> 事件回调，然后调用 <code>bot.handle(request)</code> 完成 webhook 处理。</li>
+      <li>通过 <code>getRuntimeEnvironment(env)</code> 打印当前环境（<code>prod</code> / <code>dev-test</code> / <code>local-demo</code>）。</li>
+    </ol>
+
+    <h3 id="sec-4-2">4.2 配置层 — <code>src/config.ts</code></h3>
+    <p>集中存放：</p>
+    <ul>
+      <li><code>IGNORED_KEYWORDS</code>：消息以这些词开头时直接忽略（<code>签到</code>/<code>打卡</code>/<code>查找</code>）。</li>
+      <li><code>aiConfig</code>：<code>temperature = 0.4</code>，<code>timeout = 30000ms</code>。</li>
+      <li><code>SYSTEM_PROMPTS</code>：<code>summarizeChat</code> 与 <code>answerQuestion</code> 两套系统提示词。</li>
+      <li><code>cronConfig</code>：每日总结最小消息数阈值、消息保留上限（5000）、图片保留期（2 天）、跳过总结的群组 ID 列表。</li>
+      <li><code>botConfig.repoUrl</code>：开源项目地址。</li>
+      <li><code>PROMPT_FORMATTING.messageSeparator</code>：拼接历史消息的分隔符 <code>---</code>。</li>
+      <li><code>getRuntimeEnvironment(env)</code>：返回当前运行环境标识。</li>
+    </ul>
+
+    <h3 id="sec-4-3">4.3 数据访问层 — <code>src/db.ts</code></h3>
+    <p>封装所有 D1 SQL：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>函数</th><th>作用</th></tr></thead>
+        <tbody>
+          <tr><td><code>saveMessage</code></td><td>插入/替换一条消息（主键 <code>id</code> = 消息链接）</td></tr>
+          <tr><td><code>getMessagesByCount</code></td><td>取某群最近 N 条（最多 4000）</td></tr>
+          <tr><td><code>getMessagesByHours</code></td><td>取某群最近 N 小时的消息</td></tr>
+          <tr><td><code>searchMessages</code></td><td>按 <code>GLOB</code> 模糊搜索（<code>*关键词*</code>）</td></tr>
+          <tr><td><code>getActiveGroups</code></td><td>取过去 24h 消息数 &gt; 阈值的活跃群</td></tr>
+          <tr><td><code>cleanupOldMessages</code></td><td>每群按时间倒序保留前 N 条，删除其余</td></tr>
+          <tr><td><code>cleanupOldImages</code></td><td>删除早于保留期的 JPEG base64 消息</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="sec-4-4">4.4 AI 层 — <code>src/ai.ts</code></h3>
+    <ul>
+      <li><code>createOpenAIClient(env)</code>：根据环境变量选择 baseURL——
+        <ul>
+          <li>默认走 AI Gateway：<code>https://gateway.ai.cloudflare.com/v1/{ACCOUNT_ID}/{AI_GATEWAY_ID}/compat</code></li>
+          <li>回退模式：<code>FORCE_USE_AI_BASE_URL === 'true'</code> 时使用 <code>AI_BASE_URL</code>（本地 ollama 等）</li>
+          <li>都没配置则抛错。</li>
+        </ul>
+      </li>
+      <li><code>dispatchContent(content)</code>：判断 content 是 JPEG base64（返回 <code>image_url</code> part）还是纯文本。</li>
+      <li><code>getAIResponse(env, messages, promptType, question?)</code>：把 <code>MessageRecord[]</code> 拼成 OpenAI 多模态 <code>content</code> 数组（文本 + 图片），调 <code>chat.completions.create</code>，<code>max_tokens=4096</code>。</li>
+      <li><code>getSummary(env, messages)</code> 与 <code>answerQuestion(env, messages, question)</code>：分别对应两种 promptType 的对外门面。</li>
+    </ul>
+
+    <h3 id="sec-4-5">4.5 路由 / Handler 层 — <code>src/handlers/</code></h3>
+    <p>每个文件对应一个用户命令或事件类型，统一签名为 <code>(ctx: BotContext, env: Env, ...) =&gt; Promise&lt;Response&gt;</code>：</p>
+    <ul>
+      <li><code>version.ts</code> — <code>/version</code>：返回 <code>GIT_COMMIT_SHA</code> 前 7 位（CI 注入）。</li>
+      <li><code>status.ts</code> — <code>/status</code>：存活探针。</li>
+      <li><code>test_summary.ts</code> — <code>/test_summary</code>：仅 <code>TELEGRAM_ADMIN_ID</code> 可触发，手动跑每日总结（注意：文件注释里写了这会造成与 <code>cron.ts</code> 的循环依赖，是个已知 TODO）。</li>
+      <li><code>query.ts</code> — <code>/query word</code>：D1 <code>GLOB</code> 搜索，结果以 MarkdownV2 输出，带消息链接。</li>
+      <li><code>ask.ts</code> — <code>/ask question</code>：取最近 1000 条作为上下文，调 <code>answerQuestion</code>，结果以<strong>私聊</strong>形式回复用户（先发"思考中…"来检测用户是否已 /start 私聊过 bot）。</li>
+      <li><code>summary.ts</code> — <code>/summary 10</code> 或 <code>/summary 10h</code>：按条数或小时取消息，调 <code>getSummary</code>，结果用 <code>telegramifyMarkdown</code> + <code>processMarkdownLinks</code> + <code>foldText</code> + <code>fixLink</code> 加工后回复。</li>
+      <li><code>message.ts</code> — <code>:message</code> / <code>:edited_message</code>：
+        <ul>
+          <li>仅处理群聊；</li>
+          <li><code>IGNORED_KEYWORDS</code> 命中则跳过；</li>
+          <li>命中回复时拼接被回复消息的链接；</li>
+          <li>内容为单条 URL 时调 <code>extractAllOGInfo</code> 抓 OG 元信息；</li>
+          <li>图片消息：通过 <code>ctx.getFile</code> 下载，<code>isJPEGBase64</code> 校验后以 base64 存库；</li>
+          <li>编辑消息：直接覆盖同 <code>id</code> 记录（<code>INSERT OR REPLACE</code>）。</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3 id="sec-4-6">4.6 定时任务层 — <code>src/cron.ts</code></h3>
+    <ul>
+      <li><code>handleScheduledSummary(env, summary_period_minutes)</code>：取活跃群 → 跳过 <code>skipSummaryGroupIds</code> → 按时间窗取消息 → <code>getSummary</code> → 经 MarkdownV2 加工 → 直接 <code>fetch</code> Telegram <code>sendMessage</code> 发到群里，标签 <code>#summary</code>。</li>
+      <li><code>handleScheduledCleanup(env)</code>：先 <code>cleanupOldMessages(5000)</code>，再 <code>cleanupOldImages(2 天)</code>，输出删除数量日志。</li>
+    </ul>
+
+    <h3 id="sec-4-7">4.7 工具层 — <code>src/utils/</code></h3>
+    <h4>telegram.ts</h4>
+    <ul>
+      <li><code>getMessageLink({groupId, messageId})</code>：处理 <code>-100xxxxxxxxxx</code> 超级群前缀，生成 <code>https://t.me/c/{id}/{messageId}</code>。</li>
+      <li><code>getUserName(msg)</code>：优先用频道匿名身份 <code>sender_chat.title</code>，否则 <code>from.first_name</code>，再否则 <code>anonymous</code>。</li>
+      <li><code>fixLink(text)</code>：修复 LLM 错误生成的 <code>tme.cat</code> → <code>t.me/c</code>、<code>/c/c</code> → <code>/c</code>。</li>
+      <li><code>getCommandVar(str, delim)</code>：从命令里取参数。</li>
+      <li><code>messageTemplate(s, modelName)</code>：在摘要前加一行"下面由财大气粗的 {model} 概括群聊信息"。</li>
+    </ul>
+    <h4>markdown.ts</h4>
+    <ul>
+      <li><code>escapeMarkdownV2(text)</code>：转义 MarkdownV2 保留字符。</li>
+      <li><code>toSuperscript(num)</code>：数字转上标（用于引用编号）。</li>
+      <li><code>processMarkdownLinks(text, options)</code>：把 <code>[url](url)</code> 这种"显示文本==链接"的重复链接，去重并替换为 <code>[引用¹](url)</code>、<code>[引用²](url)</code> 形式。</li>
+      <li><code>foldText(text)</code>：把文本包装成 Telegram 可折叠的 <code>**&gt;...||</code> 块。</li>
+    </ul>
+    <h4>og.ts</h4>
+    <p><code>extractAllOGInfo(url)</code>：用 <code>HTMLRewriter</code> 流式解析 <code>&lt;meta&gt;</code>，抓 <code>og:*</code> 与其他 meta，返回 <code>"{url} 的相关信息为:\nkey: value\n…"</code>。</p>
+    <h4>isJpeg.ts</h4>
+    <p><code>isJPEGBase64(b64)</code>：通过 SOI(<code>FF D8</code>) / EOI(<code>FF D9</code>) 校验 JPEG 头尾。</p>
+
+    <h3 id="sec-4-8">4.8 类型层 — <code>src/types.ts</code></h3>
+    <ul>
+      <li><code>Env</code>：Worker 绑定——<code>DB: D1Database</code>、<code>ENV</code>、<code>AI_MODEL_NAME</code>、<code>FORCE_USE_AI_BASE_URL</code>、<code>AI_BASE_URL</code>，以及 secrets：<code>SECRET_TELEGRAM_API_TOKEN</code> / <code>TELEGRAM_ADMIN_ID</code> / <code>ACCOUNT_ID</code> / <code>AI_GATEWAY_ID</code> / <code>AI_API_KEY</code>。</li>
+      <li><code>BotContext</code>：handler 接收的上下文，含 <code>update</code>、<code>reply</code>、<code>getFile</code>、<code>api</code>、<code>bot</code>、<code>update_type</code>。</li>
+      <li><code>MessageRecord</code>：D1 中一条消息的结构（<code>id</code>/<code>groupId</code>/<code>userName</code>/<code>content</code>/<code>messageId</code>/<code>timeStamp</code>/<code>groupName</code>）。</li>
+    </ul>
+
+    <h3 id="sec-4-9">4.9 数据库结构 — <code>schema.sql</code></h3>
+    <pre><code><span class="k">CREATE TABLE IF NOT EXISTS</span> Messages (
+    id <span class="k">TEXT PRIMARY KEY</span>,          <span class="c">-- 消息永久链接</span>
+    groupId <span class="k">TEXT</span>,
+    timeStamp <span class="k">INTEGER NOT NULL</span>,
+    userName <span class="k">TEXT</span>,
+    content <span class="k">TEXT</span>,                 <span class="c">-- 文本或 data:image/jpeg;base64,...</span>
+    messageId <span class="k">INTEGER</span>,
+    groupName <span class="k">TEXT</span>
+);
+<span class="k">CREATE INDEX IF NOT EXISTS</span> idx_messages_groupid_timestamp
+            <span class="k">ON</span> Messages(groupId, timeStamp <span class="k">DESC</span>);</code></pre>
+    <p>主键即消息链接，因此同一条消息被编辑时通过 <code>INSERT OR REPLACE</code> 自然覆盖；索引支撑按群组、按时间倒序检索的场景。</p>
+  </section>
+
+  <!-- ============ 5. 关键类与函数 ============ -->
+  <section id="sec-5">
+    <h2><span class="num">5</span>关键类与函数说明</h2>
+
+    <h3>5.1 <code>src/index.ts</code></h3>
+    <pre><code><span class="k">export default</span> {
+  <span class="k">async</span> <span class="f">scheduled</span>(controller, env, ctx) { ... }   <span class="c">// 路由 cron 字符串</span>
+  <span class="k">async</span> <span class="f">fetch</span>(request, env, _ctx) { ... }          <span class="c">// 实例化 TelegramBot、注册 handler、处理 webhook</span>
+}</code></pre>
+    <ul>
+      <li><code>scheduled</code> 内硬编码两个 cron：<code>23 15 * * *</code>（上海 23:23，总结 24h42min 的内容，42 分钟用于和前一天重叠）与 <code>42 18 * * *</code>（上海 02:42，清理）。</li>
+      <li><code>fetch</code> 通过 <code>bot.on('command', fn)</code> 与 <code>bot.on(':message', fn)</code> 注册所有回调；用 <code>ctx.waitUntil</code> 把长任务挂起避免 Worker 提前回收。</li>
+    </ul>
+
+    <h3>5.2 <code>src/ai.ts</code></h3>
+    <pre><code><span class="k">function</span> <span class="f">createOpenAIClient</span>(env: Env): OpenAI
+<span class="k">async function</span> <span class="f">getAIResponse</span>(env, messages, promptType, question?): <span class="k">Promise</span>&lt;<span class="k">string</span>&gt;
+<span class="k">export async function</span> <span class="f">getSummary</span>(env, messages): <span class="k">Promise</span>&lt;<span class="k">string</span>&gt;
+<span class="k">export async function</span> <span class="f">answerQuestion</span>(env, messages, question): <span class="k">Promise</span>&lt;<span class="k">string</span>&gt;</code></pre>
+    <ul>
+      <li>多模态拼装：文本部分聚合成一个 <code>text</code> part 放在数组开头，图片单独作为 <code>image_url</code> part，避免每条消息都重复 system prompt 浪费 token。</li>
+      <li>超时统一用 SDK 的 <code>timeout</code> 选项（30s），而非自定义头，便于跨供应商兼容。</li>
+    </ul>
+
+    <h3>5.3 <code>src/db.ts</code></h3>
+    <pre><code><span class="f">saveMessage</span>(db, message)
+<span class="f">getMessagesByCount</span>(db, groupId, limit)        <span class="c">// Math.min(limit, 4000) 保护</span>
+<span class="f">getMessagesByHours</span>(db, groupId, hours)
+<span class="f">searchMessages</span>(db, groupId, searchTerm)       <span class="c">// LIMIT 2000</span>
+<span class="f">getActiveGroups</span>(db, threshold)
+<span class="f">cleanupOldMessages</span>(db, threshold)             <span class="c">// 窗口函数 ROW_NUMBER() OVER PARTITION BY groupId</span>
+<span class="f">cleanupOldImages</span>(db, retentionPeriodMs)</code></pre>
+    <ul>
+      <li><code>cleanupOldMessages</code> 用 <code>ROW_NUMBER() OVER (PARTITION BY groupId ORDER BY timeStamp DESC)</code> 删除每群排名 &gt; threshold 的旧消息，是单条 SQL 完成的"每群保留最新 N 条"。</li>
+      <li>所有写操作都 <code>try/catch</code>，错误只打日志不抛，保证 webhook 总能返回 200。</li>
+    </ul>
+
+    <h3>5.4 <code>src/handlers/</code></h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>函数</th><th>关键行为</th></tr></thead>
+        <tbody>
+          <tr><td><code>handleVersionCommand</code></td><td>读 <code>env.GIT_COMMIT_SHA</code>，回 MarkdownV2</td></tr>
+          <tr><td><code>handleStatusCommand</code></td><td>回固定字符串 <code>'我家还蛮大的'</code></td></tr>
+          <tr><td><code>handleTestSummaryCommand</code></td><td>仅管理员，调 <code>handleScheduledSummary</code>（已知循环依赖 TODO）</td></tr>
+          <tr><td><code>handleQueryCommand</code></td><td><code>searchMessages(db, gid, '*'+term+'*')</code>，结果转义后带 <code>[link](...)</code></td></tr>
+          <tr><td><code>handleAskCommand</code></td><td>取最近 1000 条上下文 → <code>answerQuestion</code> → <strong>私聊</strong>回复；先发"思考中…"探测私聊是否被 /start</td></tr>
+          <tr><td><code>handleSummaryCommand</code></td><td>解析 <code>Nh</code> 或 <code>N</code>，取消息 → <code>getSummary</code> → MarkdownV2 加工 → 回复</td></tr>
+          <tr><td><code>handleMessage</code></td><td>群聊判断 / 关键词过滤 / 回复链接拼接 / URL→OG / 图片入库</td></tr>
+          <tr><td><code>handleEditedMessage</code></td><td>直接 <code>saveMessage</code> 覆盖</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>5.5 <code>src/utils/markdown.ts</code></h3>
+    <ul>
+      <li><code>processMarkdownLinks</code>：用 <code>Map&lt;url, number&gt;</code> 去重，把 <code>[url](url)</code> 改写成 <code>[引用¹](url)</code>；只有"显示文本 === URL"的链接才处理，避免误伤正常命名链接。</li>
+      <li><code>foldText</code>：Telegram 折叠块语法要求 <code>**&gt;</code> 开头、<code>||</code> 结尾，且每行都要以 <code>&gt;</code> 开头，所以是 <code>**&gt;</code> + <code>text.replace(/\n/g, '\n&gt;')</code> + <code>||</code>。</li>
+    </ul>
+
+    <h3>5.6 <code>src/utils/telegram.ts</code></h3>
+    <p><code>getMessageLink</code> 关键点：D1 里 <code>groupId</code> 可能是浮点（如 <code>-1002803482189.0</code>），所以先 <code>Math.trunc</code>；超级群 ID 以 <code>-100</code> 开头，需要去掉前 4 个字符再拼 <code>t.me/c/...</code>。</p>
+  </section>
+
+  <!-- ============ 6. 依赖关系 ============ -->
+  <section id="sec-6">
+    <h2><span class="num">6</span>依赖关系</h2>
+
+    <h3>6.1 运行时外部依赖</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>依赖</th><th>用途</th><th>备注</th></tr></thead>
+        <tbody>
+          <tr><td><code>@codebam/cf-workers-telegram-bot</code></td><td>Telegram Bot 框架（webhook 解析、命令路由、API 客户端）</td><td>README 里指明其源：<code>codebam/cf-workers-telegram-bot</code></td></tr>
+          <tr><td><code>openai</code></td><td>通过 OpenAI SDK 调用 Cloudflare AI Gateway 的 OpenAI 兼容端点</td><td><code>^4.96.2</code></td></tr>
+          <tr><td><code>telegramify-markdown</code></td><td>把 LLM 输出的标准 Markdown 转成 Telegram MarkdownV2 安全文本</td><td><code>^1.2.2</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>6.2 开发依赖（关键）</h3>
+    <ul>
+      <li><code>wrangler ^4.20.5</code> —— CF Workers 本地/部署工具链。</li>
+      <li><code>@cloudflare/workers-types</code> —— Workers 运行时类型。</li>
+      <li><code>@cloudflare/vitest-pool-workers</code> + <code>vitest ^3.2.4</code> —— Workers 环境下的单测。</li>
+      <li><code>gts ^6.0.2</code> —— Google TypeScript Style，提供 <code>lint</code>/<code>fix</code>/<code>clean</code>。</li>
+      <li><code>typescript ^5.6.3</code>、<code>@types/node ^22</code>。</li>
+    </ul>
+
+    <h3>6.3 <code>overrides</code></h3>
+    <pre><code><span class="p">"overrides"</span>: { <span class="s">"is-core-module"</span>: <span class="s">"npm:@nolyfill/is-core-module@^1"</span> }</code></pre>
+    <p>用 <code>@nolyfill</code> 替换 <code>is-core-module</code>，常见于减小 Workers 打包体积、绕过 Node 内置模块 polyfill 的兼容问题。</p>
+
+    <h3>6.4 模块内依赖图（简化）</h3>
+    <pre><code>index.ts ─┬─&gt; config.ts (getRuntimeEnvironment)
+          ├─&gt; cron.ts ─┬─&gt; config.ts (cronConfig)
+          │            ├─&gt; db.ts (getActiveGroups, getMessagesByHours, cleanup*)
+          │            ├─&gt; ai.ts (getSummary)
+          │            ├─&gt; utils/markdown.ts
+          │            └─&gt; utils/telegram.ts
+          └─&gt; handlers/* ─┬─&gt; db.ts
+                          ├─&gt; ai.ts
+                          ├─&gt; config.ts (IGNORED_KEYWORDS)
+                          ├─&gt; utils/{telegram,markdown,og,isJpeg}.ts
+                          └─&gt; cron.ts (test_summary.ts 反向依赖 ← 已知循环依赖)</code></pre>
+    <p>外部服务依赖：Telegram Bot API、Cloudflare D1、Cloudflare AI Gateway、底层 LLM（Gemini Flash 等）。</p>
+  </section>
+
+  <!-- ============ 7. 项目运行方式 ============ -->
+  <section id="sec-7">
+    <h2><span class="num">7</span>项目运行方式</h2>
+
+    <h3>7.1 前置条件</h3>
+    <ol>
+      <li>一个 Telegram Bot Token（找 <code>@BotFather</code> 创建）。</li>
+      <li>一个 Cloudflare 账号，开通 Workers + D1 + AI Gateway。</li>
+      <li>（可选）一个 LLM API Key（如 Google AI Studio 的 Gemini key）。</li>
+    </ol>
+
+    <h3>7.2 安装</h3>
+    <pre><code>npm install</code></pre>
+
+    <h3>7.3 D1 数据库初始化</h3>
+    <p>在 Cloudflare 控制台创建 D1 数据库后，把 <code>database_id</code> 写进 <code>wrangler.toml</code>，然后执行：</p>
+    <pre><code>npx wrangler d1 execute &lt;DB_NAME&gt; --file=./schema.sql --remote
+<span class="c"># 本地测试用 --local</span></code></pre>
+
+    <h3>7.4 配置 Secrets（生产 <code>env.prod</code>）</h3>
+    <pre><code>npx wrangler secret put SECRET_TELEGRAM_API_TOKEN --env prod
+npx wrangler secret put TELEGRAM_ADMIN_ID         --env prod
+npx wrangler secret put ACCOUNT_ID                --env prod
+npx wrangler secret put AI_GATEWAY_ID             --env prod
+npx wrangler secret put AI_API_KEY                --env prod
+<span class="c"># 可选：CI 注入</span>
+npx wrangler secret put GIT_COMMIT_SHA            --env prod</code></pre>
+
+    <h3>7.5 三套环境（<code>wrangler.toml</code>）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>环境</th><th>ENV</th><th>Worker 名</th><th>D1</th><th>AI 接入</th></tr></thead>
+        <tbody>
+          <tr><td><code>env.prod</code></td><td>prod</td><td>telegram-summary-bot</td><td>baijia-bot-db</td><td>AI Gateway（用 secrets 自动拼 baseURL）</td></tr>
+          <tr><td><code>env.dev-test</code></td><td>dev-test</td><td>telegram-summary-test</td><td>baijiabot-t-db</td><td>同上，指向测试资源</td></tr>
+          <tr><td><code>env.local-demo</code></td><td>local-demo</td><td>telegram-summary-local</td><td>baijiabot-t-db</td><td><code>FORCE_USE_AI_BASE_URL=true</code>，走 <code>AI_BASE_URL</code>（默认 ollama，<code>llama3</code>）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn">
+      <div class="title">注意</div>
+      <code>wrangler dev</code> 因为 Telegram webhook 需要公网 HTTPS，无法端到端本地调试。<code>local-demo</code> 环境的目的是部署到一个测试 Worker，再通过 cloudflared tunnel 等方式把本地 LLM 暴露给 Worker 调用。
+    </div>
+
+    <h3>7.6 本地开发 / 部署 / 测试命令</h3>
+    <pre><code>npm run dev          <span class="c"># wrangler dev（注意上述 webhook 限制）</span>
+npm run deploy       <span class="c"># wrangler deploy（默认 env）</span>
+npm run deploy -- --env prod
+npm run test         <span class="c"># vitest（基于 wrangler.toml 的 Workers pool）</span>
+npm run compile      <span class="c"># tsc --noEmit</span>
+npm run lint         <span class="c"># gts lint</span>
+npm run fix          <span class="c"># gts fix</span>
+npm run cf-typegen   <span class="c"># wrangler types，重新生成 worker-configuration.d.ts</span></code></pre>
+
+    <h3>7.7 设置 Telegram Webhook</h3>
+    <p>部署后需要把 Worker URL 注册为 bot 的 webhook：</p>
+    <pre><code>curl <span class="s">"https://api.telegram.org/bot&lt;TOKEN&gt;/setWebhook?url=https://&lt;WORKER&gt;.workers.dev/"</span></code></pre>
+
+    <h3>7.8 用户命令一览</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>命令</th><th>作用</th></tr></thead>
+        <tbody>
+          <tr><td><code>/version</code></td><td>显示当前 commit SHA</td></tr>
+          <tr><td><code>/status</code></td><td>存活探针</td></tr>
+          <tr><td><code>/summary 10</code></td><td>总结最近 10 条消息</td></tr>
+          <tr><td><code>/summary 10h</code></td><td>总结最近 10 小时消息</td></tr>
+          <tr><td><code>/query 关键词</code></td><td>在群里搜索（支持 CJK），返回带链接结果</td></tr>
+          <tr><td><code>/ask 问题</code></td><td>基于最近 1000 条群聊上下文回答（私聊回复）</td></tr>
+          <tr><td><code>/test_summary</code></td><td>管理员手动触发当日每日总结</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>7.9 CI</h3>
+    <p><code>.github/workflows/format.yml</code>：在 <code>push</code> / <code>pull_request</code> 到 <code>master</code> 时跑 <code>npm ci</code> + <code>npx tsc --noEmit</code> 做类型检查。</p>
+  </section>
+
+  <!-- ============ 8. 分支策略与上游关系 ============ -->
+  <section id="sec-8">
+    <h2><span class="num">8</span>分支策略与上游关系</h2>
+
+    <h3>8.1 仓库身份</h3>
+    <p>来自 GitHub 元数据 + 本地 <code>.git/config</code>：</p>
+    <ul>
+      <li><strong>当前仓库（origin）</strong>：<code>kid101x/telegram-summary-bot</code></li>
+      <li><strong>fork 源（parent / network root）</strong>：<code>asukaminato0721/telegram-summary-bot</code></li>
+      <li>GitHub 页 meta 明确：<code>repository_is_fork: true</code>、<code>repository_parent_nwo: asukaminato0721/telegram-summary-bot</code>、<code>repository_network_root_nwo: asukaminato0721/telegram-summary-bot</code>。</li>
+      <li><code>src/config.ts</code> 里的 <code>botConfig.repoUrl</code> 仍指向<strong>上游</strong> <code>asukaminato0721/telegram-summary-bot</code>，说明 fork 后未改这一项。</li>
+    </ul>
+
+    <h3>8.2 分支情况</h3>
+    <p>GitHub 显示该 fork 有 <strong>3 个分支</strong>，默认分支为 <strong><code>master</code></strong>。本地工作目录由于是浅克隆 + fetch refspec 被收窄为：</p>
+    <pre><code><span class="p">[remote "origin"]</span>
+    url = https://...@github.com/kid101x/telegram-summary-bot
+    fetch = +refs/heads/dev:refs/remotes/origin/dev
+<span class="p">[branch "dev"]</span>
+    remote = origin
+    merge = refs/heads/dev</code></pre>
+    <p>所以本地只看得到：</p>
+    <ul>
+      <li><code>dev</code>（HEAD，grafted 浅提交 <code>b7d87b9 改动一下prompt，为每日总结增加标题</code>）</li>
+      <li><code>remotes/origin/dev</code></li>
+    </ul>
+    <div class="callout info">
+      <div class="title">关键事实</div>
+      GitHub 上的 <code>master</code> 与上游 <code>asukaminato0721/telegram-summary-bot:master</code> 比较，显示 <strong>"9 commits behind"</strong>，即 fork 的 <code>master</code> 比上游落后 9 个提交，未做自定义修改——这是一个<strong>纯镜像型 fork</strong>（fork 后 master 跟随上游，自定义开发在 <code>dev</code>）。
+    </div>
+
+    <h3>8.3 上游与下游的关系图</h3>
+    <pre><code>asukaminato0721/telegram-summary-bot  <span class="c">(上游 original, master)</span>
+                 │
+                 │  fork
+                 ▼
+   kid101x/telegram-summary-bot  <span class="c">(本仓库)</span>
+        ├── master      ← 与上游 master 同步（落后 9 commits，无本地改动）
+        └── dev         ← 本地自定义开发分支
+                            顶层提交：<span class="s">"改动一下prompt，为每日总结增加标题"</span></code></pre>
+    <p>依赖层面还有第二层"上游"：</p>
+    <pre><code>codebam/cf-workers-telegram-bot   <span class="c">(npm: @codebam/cf-workers-telegram-bot)</span>
+                 ▲
+                 │ 作为 npm 依赖被引入
+   asukaminato0721/telegram-summary-bot
+                 │
+                 │ fork
+                 ▼
+   kid101x/telegram-summary-bot</code></pre>
+    <p>即：<code>codebam/cf-workers-telegram-bot</code> 提供 Telegram bot 框架，<code>asukaminato0721/telegram-summary-bot</code> 在其之上实现"群聊总结/检索/问答"业务，<code>kid101x/telegram-summary-bot</code> 在其基础上做了少量本地化定制（如本仓库顶层那个 prompt 调整提交）。</p>
+
+    <h3>8.4 为何呈现当前形式</h3>
+    <ol>
+      <li><strong>fork 而非 clone-and-rewrite</strong>：作者希望保留与上游的可见关联，便于将来 <code>git pull upstream master</code> 拉取上游 bugfix / 新特性，也方便通过 PR 回馈上游。</li>
+      <li><strong><code>master</code> 保持纯净、<code>dev</code> 承载定制</strong>：这是 fork 工作流的常见做法——把 <code>master</code> 作为"可合并上游"的镜像分支，避免本地修改与上游更新冲突；自己的改动放在 <code>dev</code> 上，部署时按需选分支。</li>
+      <li><strong>本地 refspec 收窄到 <code>dev</code></strong>：CI 沙箱或部署机只关心自己定制的 <code>dev</code> 分支，不需要把 <code>master</code> 拉下来；这样克隆更小、更快。</li>
+      <li><strong>CI 仍以 <code>master</code> 为准</strong>：<code>.github/workflows/format.yml</code> 触发条件是 <code>branches: [master]</code>，因为 fork 继承了上游的工作流文件，且 fork 的 <code>master</code> 是默认分支——意味着实际推到 <code>dev</code> 的 PR 不会触发 CI 类型检查（除非把 workflow 改成 <code>dev</code>）。这是当前形式下一个<strong>已知的不一致</strong>。</li>
+    </ol>
+  </section>
+
+  <!-- ============ 9. 利弊分析 ============ -->
+  <section id="sec-9">
+    <h2><span class="num">9</span>当前仓库形式的利弊分析</h2>
+
+    <div class="pros-cons">
+      <div class="col pros">
+        <h4>✓ 利（Pros）</h4>
+        <ol>
+          <li><strong>能持续享受上游更新</strong>：<code>master</code> 与上游同源，<code>git fetch upstream &amp;&amp; git merge upstream/master</code> 即可同步上游修复与功能，不必手动 cherry-pick。</li>
+          <li><strong>定制与上游解耦</strong>：把定制改动隔离在 <code>dev</code>，避免本地修改污染 <code>master</code>，merge 上游时冲突面最小。</li>
+          <li><strong>GitHub 上的 fork 元数据保留可追溯性</strong>：任何访问者都能看到 "forked from asukaminato0721/..."，便于回溯原始项目、贡献 PR、对比差异。</li>
+          <li><strong>复用底层框架</strong>：直接 npm 依赖 <code>@codebam/cf-workers-telegram-bot</code>，不必自己维护 webhook 解析、Bot API 客户端，业务层只关心 handler。</li>
+          <li><strong>多环境配置成熟</strong>：<code>wrangler.toml</code> 已分 <code>prod</code> / <code>dev-test</code> / <code>local-demo</code> 三套环境，本地用 ollama、生产用 AI Gateway，互不干扰。</li>
+          <li><strong>本地克隆轻量</strong>：refspec 只抓 <code>dev</code>、浅克隆 grafted，CI/部署机拉取快、占用小。</li>
+        </ol>
+      </div>
+      <div class="col cons">
+        <h4>✗ 弊（Cons）</h4>
+        <ol>
+          <li><strong>CI 触发分支与实际开发分支不一致</strong>：workflow 监听 <code>master</code>，但开发在 <code>dev</code>，导致 <code>dev</code> 上的改动不会自动跑 <code>tsc --noEmit</code>；类型错误发现滞后。</li>
+          <li><strong>fork 的 <code>master</code> 落后上游 9 commits</strong>：说明并未定期 <code>sync fork</code>，长此以往偏移越大，未来合并冲突越难处理。</li>
+          <li><strong>循环依赖 TODO 未解</strong>：<code>handlers/test_summary.ts</code> 反向依赖 <code>cron.ts</code>，文件内注释自承循环依赖问题。当前能跑只是因为 ES Module 的惰性求值掩盖了问题。</li>
+          <li><strong><code>botConfig.repoUrl</code> 仍指向上游</strong>：fork 后没有把 README / config 里的仓库地址改成本仓自己的。</li>
+          <li><strong><code>wrangler.toml</code> 提交了真实 D1 <code>database_id</code></strong>：生产资源标识入库一般不推荐；fork 出去后其他人需要改成自己的 ID。</li>
+          <li><strong>测试与源码路径不匹配</strong>：<code>test/index.spec.ts</code> 从 <code>./../src/index</code> 导入 <code>processMarkdownLinks, toSuperscript</code>，但这两个函数实际定义在 <code>src/utils/markdown.ts</code>。该测试用例在当前代码上<strong>会编译失败</strong>，CI 又不覆盖 <code>dev</code>，问题被掩盖。</li>
+          <li><strong>浅克隆 + refspec 收窄降低可观测性</strong>：本地看不到 <code>master</code> 与上游历史，bisect、追溯变更受限。</li>
+          <li><strong>单测覆盖面极小</strong>：仅一个 spec 文件测两个纯函数，对 <code>db.ts</code> / <code>ai.ts</code> / handlers 这些核心路径没有回归保护。</li>
+          <li><strong>图片以 base64 入库</strong>：JPEG 直接以 <code>data:image/jpeg;base64,...</code> 存进 D1 的 <code>content</code>，D1 单行大小与总配额都吃紧（README 里上游已出现 <code>Exceeded maximum DB size 500M</code>）。</li>
+        </ol>
+      </div>
+    </div>
+
+    <h3>9.3 改进建议（速览）</h3>
+    <div class="callout tip">
+      <div class="title">Action Items</div>
+      <ul style="margin:6px 0 0;">
+        <li>把 <code>.github/workflows/format.yml</code> 的触发分支改为 <code>master</code> + <code>dev</code>，或干脆改为 <code>on: [push, pull_request]</code>。</li>
+        <li>定期 <code>git merge upstream/master</code> 保持 <code>master</code> 同步，或加一个 GitHub Action 自动 sync。</li>
+        <li>修复 <code>test_summary.ts</code> ↔ <code>cron.ts</code> 循环依赖：把 <code>handleScheduledSummary</code> 的核心抽到 <code>services/summary.ts</code>。</li>
+        <li>修正 <code>test/index.spec.ts</code> 的导入路径为 <code>../src/utils/markdown</code>，并让 CI 在 <code>dev</code> 上跑测试。</li>
+        <li>把 <code>wrangler.toml</code> 里的 <code>database_id</code> 改成占位符，真实 ID 通过 secret/CI 注入。</li>
+        <li>把 <code>botConfig.repoUrl</code> 与 README 中的部署链接改成当前 fork 的地址。</li>
+        <li>图片改走 R2，DB 只存对象 key，缓解 D1 容量压力。</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="footer">
+    <p>文档生成依据：仓库当前工作树（<code>dev</code> 分支 <code>b7d87b9</code>）+ GitHub 仓库元数据（fork 关系、分支数、落后 commit 数）。如仓库后续有更新，请以最新代码为准。</p>
+    <p>Generated as a single-file shareable HTML document.</p>
+  </div>
+</main>
+
+<button class="to-top" id="toTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部">↑</button>
+
+<script>
+  // 高亮当前导航项
+  const navLinks = document.querySelectorAll('.sidebar nav a');
+  const sections = document.querySelectorAll('section[id]');
+  const toTopBtn = document.getElementById('toTop');
+
+  function onScroll() {
+    let current = '';
+    const scrollY = window.scrollY;
+    sections.forEach(sec => {
+      if (scrollY >= sec.offsetTop - 100) current = sec.id;
+    });
+    navLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+    toTopBtn.classList.toggle('show', scrollY > 400);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // 移动端点击导航后关闭侧栏
+  navLinks.forEach(a => {
+    a.addEventListener('click', () => {
+      if (window.innerWidth <= 768) {
+        document.querySelector('.sidebar').classList.remove('open');
+      }
+    });
+  });
+</script>
+</body>
+</html>
