@@ -8,7 +8,7 @@ import telegramifyMarkdown from 'telegramify-markdown';
 
 export async function handleScheduledSummary(env: Env, summary_period_minutes: number) {
 	console.log('[cron] summary job: fetching active groups.');
-	const groups = await getActiveGroups(env.DB, cronConfig.dailySummaryMessageThreshold);
+	const groups = await getActiveGroups(env.DB, cronConfig.dailySummaryMessageThreshold, cronConfig.maxSummaryGroupsPerRun);
 	console.log(`[cron] summary job: found ${groups.length} active groups.`);
 
 	for (const group of groups) {

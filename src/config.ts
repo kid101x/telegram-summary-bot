@@ -56,6 +56,8 @@ export const cronConfig = {
 	imageRetentionPeriodMs: 2 * 24 * 60 * 60 * 1000, // 2天
 	// 需要跳过发送总结的群组ID列表
 	skipSummaryGroupIds: [-1001687785734],
+	// 每次定时总结最多处理的群组数（按消息数降序取前 N，防止 Gemini flash 配额被打满）
+	maxSummaryGroupsPerRun: 20,
 };
 
 // 机器人通用配置

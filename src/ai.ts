@@ -28,12 +28,16 @@ function dispatchContent(content: string): { type: 'text'; text: string } | { ty
  */
 function createOpenAIClient(env: Env): OpenAI {
 	let baseURL: string | undefined;
-	const apiKey = env.AI_API_KEY || 'local-no-key';
+	// 网关模式用「AI Gateway 身份令牌」(Authenticated Gateway) 鉴权，Provider 密钥存在网关侧；
+	// 直连/本地回退模式才用 Provider 自己的 AI_API_KEY。
+	let apiKey: string;
 
 	// 1. 默认模式：尝试使用 AI Gateway
 	if (env.ACCOUNT_ID && env.AI_GATEWAY_ID) {
 		// 根据 OpenAI-Compatibility.md 文档，使用 /compat 路径
 		baseURL = `https://gateway.ai.cloudflare.com/v1/${env.ACCOUNT_ID}/${env.AI_GATEWAY_ID}/compat`;
+		// 优先用网关令牌；缺失时回退到旧的 Provider key 直传，兼容未开启鉴权的网关。
+		apiKey = env.CF_AIG_TOKEN || env.AI_API_KEY || 'local-no-key';
 	}
 	// 2. 回退模式：检查是否显式要求使用 AI_BASE_URL
 	else if (env.FORCE_USE_AI_BASE_URL === 'true') {
@@ -41,6 +45,7 @@ function createOpenAIClient(env: Env): OpenAI {
 			throw new Error("Configuration error: FORCE_USE_AI_BASE_URL is 'true', but the AI_BASE_URL variable is missing.");
 		}
 		baseURL = env.AI_BASE_URL;
+		apiKey = env.AI_API_KEY || 'local-no-key';
 	}
 	// 3. 如果两种模式都未配置，则抛出清晰的错误
 	else {
