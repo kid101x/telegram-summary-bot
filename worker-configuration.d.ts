@@ -12,6 +12,7 @@ declare namespace Cloudflare {
         TELEGRAM_ADMIN_ID: string;
         ACCOUNT_ID: string;
         AI_GATEWAY_ID: string;
+        CF_AIG_TOKEN: string;
         AI_API_KEY: string;
 	}
 }

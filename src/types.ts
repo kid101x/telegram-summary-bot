@@ -18,6 +18,7 @@ export interface Env {
 	TELEGRAM_ADMIN_ID: string;
 	ACCOUNT_ID: string;
 	AI_GATEWAY_ID: string;
+	CF_AIG_TOKEN: string; // AI Gateway 身份令牌 (Authenticated Gateway)，网关侧已存 Provider 密钥
 	AI_API_KEY: string;
 
 	[key: string]: unknown;

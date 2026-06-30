@@ -52,7 +52,8 @@ AI_MODEL_NAME = "google-ai-studio/gemini-2.0-flash"
 # Use 'npx wrangler secret put <SECRET_NAME>' to set these:
 # - ACCOUNT_ID: Your Cloudflare Account ID.
 # - AI_GATEWAY_ID: Your Production AI Gateway ID.
-# - AI_API_KEY: Your AI provider's API key (e.g., for Gemini or OpenAI).
+# - CF_AIG_TOKEN: AI Gateway authentication token (Authenticated Gateway). Store the provider key inside the gateway; the app authenticates with this token.
+# - AI_API_KEY: Your AI provider's API key (only needed for the direct/local fallback path, not when using an authenticated gateway).
 # - SECRET_TELEGRAM_API_TOKEN: Your Telegram Bot Token.
 # - GIT_COMMIT_SHA: (Optional) Automatically set by CI/CD for the /version command.
 
